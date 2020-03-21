@@ -4,6 +4,9 @@ project(glsl-raytracing)
 
 set(SRCS
         src/device.cpp
+        src/scene.cpp
+        src/trace.cpp
+        src/window.cpp
         src/main.cpp)
 add_executable(demo ${SRCS})
 
@@ -18,12 +21,14 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Windows")
     target_compile_definitions(demo
             PRIVATE
             -DVK_USE_PLATFORM_WIN32_KHR)
-endif()
+endif ()
 
 # compile shaders
 add_custom_target(shader
         COMMAND glslangValidator -V ${CMAKE_CURRENT_SOURCE_DIR}/shaders/trace.comp.glsl -o ${CMAKE_CURRENT_BINARY_DIR}/trace.comp.spv
-        DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/shaders/trace.comp.glsl
+        COMMAND glslangValidator -V ${CMAKE_CURRENT_SOURCE_DIR}/shaders/screen.vert.glsl -o ${CMAKE_CURRENT_BINARY_DIR}/screen.vert.spv
+        COMMAND glslangValidator -V ${CMAKE_CURRENT_SOURCE_DIR}/shaders/screen.frag.glsl -o ${CMAKE_CURRENT_BINARY_DIR}/screen.frag.spv
+        DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/shaders/trace.comp.glsl ${CMAKE_CURRENT_SOURCE_DIR}/shaders/screen.frag.glsl ${CMAKE_CURRENT_SOURCE_DIR}/shaders/screen.vert.glsl
         COMMENT "compile shader")
 
 # demo
