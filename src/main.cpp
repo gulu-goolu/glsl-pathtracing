@@ -1,3 +1,4 @@
+#include "device.h"
 #include <stdio.h>
 
 void checkShaderExists() {
@@ -14,5 +15,6 @@ void checkShaderExists() {
 }
 
 int main() {
-    checkShaderExists();
+    auto dev = new Device(true);
+    delete dev;
 }
