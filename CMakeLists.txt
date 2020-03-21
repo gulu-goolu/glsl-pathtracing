@@ -4,3 +4,12 @@ project(glsl-raytracing)
 
 set(SRCS src/main.cpp)
 add_executable(demo ${SRCS})
+
+# compile shaders
+add_custom_target(shader
+        COMMAND glslangValidator -V ${CMAKE_CURRENT_SOURCE_DIR}/shaders/trace.comp.glsl -o ${CMAKE_CURRENT_BINARY_DIR}/trace.comp.spv
+        DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/shaders/trace.comp.glsl
+        COMMENT "compile shader")
+
+# demo
+add_dependencies(demo shader)
