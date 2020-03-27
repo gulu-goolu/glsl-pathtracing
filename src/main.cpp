@@ -1,4 +1,4 @@
-#include "device.h"
+#include "app.h"
 #include <stdio.h>
 
 void checkShaderExists() {
@@ -15,6 +15,8 @@ void checkShaderExists() {
 }
 
 int main() {
-    auto dev = new Device(true);
-    delete dev;
+    App app;
+    app.startup(1920, 1080);
+    app.run();
+    app.cleanup();
 }

@@ -1,14 +1,31 @@
 cmake_minimum_required(VERSION 3.10)
-
 project(glsl-raytracing)
 
+set(CMAKE_CXX_STANDARD 17)
+
+add_subdirectory(3rdparty)
+
+# compile res
+add_custom_target(shader
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}/res
+        COMMAND glslangValidator -V ${CMAKE_CURRENT_SOURCE_DIR}/res/trace.comp.glsl -o ${CMAKE_CURRENT_BINARY_DIR}/res/trace.comp.spv
+        COMMAND glslangValidator -V ${CMAKE_CURRENT_SOURCE_DIR}/res/display.vert.glsl -o ${CMAKE_CURRENT_BINARY_DIR}/res/display.vert.spv
+        COMMAND glslangValidator -V ${CMAKE_CURRENT_SOURCE_DIR}/res/display.frag.glsl -o ${CMAKE_CURRENT_BINARY_DIR}/res/display.frag.spv
+        DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/res/trace.comp.glsl ${CMAKE_CURRENT_SOURCE_DIR}/res/display.frag.glsl ${CMAKE_CURRENT_SOURCE_DIR}/res/display.vert.glsl
+        COMMENT "compile shader")
+
 set(SRCS
+        src/util.cpp
         src/device.cpp
         src/scene.cpp
-        src/trace.cpp
-        src/window.cpp
+        src/render.cpp
+        src/app.cpp
         src/main.cpp)
 add_executable(demo ${SRCS})
+
+target_include_directories(demo
+        PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/glm/)
 
 if (${CMAKE_SYSTEM_NAME} MATCHES "Windows")
     target_include_directories(demo
@@ -20,16 +37,10 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Windows")
     target_link_libraries(demo vulkan-1)
     target_compile_definitions(demo
             PRIVATE
+            -DDEBUG
             -DVK_USE_PLATFORM_WIN32_KHR)
 endif ()
 
-# compile shaders
-add_custom_target(shader
-        COMMAND glslangValidator -V ${CMAKE_CURRENT_SOURCE_DIR}/shaders/trace.comp.glsl -o ${CMAKE_CURRENT_BINARY_DIR}/trace.comp.spv
-        COMMAND glslangValidator -V ${CMAKE_CURRENT_SOURCE_DIR}/shaders/screen.vert.glsl -o ${CMAKE_CURRENT_BINARY_DIR}/screen.vert.spv
-        COMMAND glslangValidator -V ${CMAKE_CURRENT_SOURCE_DIR}/shaders/screen.frag.glsl -o ${CMAKE_CURRENT_BINARY_DIR}/screen.frag.spv
-        DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/shaders/trace.comp.glsl ${CMAKE_CURRENT_SOURCE_DIR}/shaders/screen.frag.glsl ${CMAKE_CURRENT_SOURCE_DIR}/shaders/screen.vert.glsl
-        COMMENT "compile shader")
-
 # demo
 add_dependencies(demo shader)
+target_link_libraries(demo glfw)
