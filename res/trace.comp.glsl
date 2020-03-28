@@ -1,8 +1,11 @@
 #version 450 core
 
+#define SHAPE_BOUNDS 0
+#define SHAPE_ENITTY 1
+
 struct Node {
-    uint type;
-    uint object;
+    uint shape_type;
+    uint shape;
 
     uint children;
     uint count;
@@ -11,23 +14,23 @@ struct Node {
 const uint BOUNDS = 0;
 const uint SHAPES = 1;
 
-layout(set = 0, binding = 0) readonly buffer Hierarchy {
+layout(rgba32f, set = 0, binding = 0) uniform image2D resultImage;
+/*
+layout(set = 1, binding = 0) readonly buffer HierarchyBuffer {
     Node nodes[];
 };
-layout(set = 0, binding = 1) readonly buffer Integers {
+layout(set = 1, binding = 1) readonly buffer IntegersBuffer {
     uint integers[];
 };
-layout(set = 0, binding = 2) readonly buffer Floats {
+layout(set = 1, binding = 2) readonly buffer FloatsBuffer {
     vec4 floats[];
 };
-layout(set = 0, binding = 3) uniform Light {
+layout(set = 1, binding = 3) readonly buffer LightUniformBuffer {
     uint numLight;
-    uvec2 lights[];
+    vec4 lights[];
 };
 
-layout(set = 1, binding = 0) uniform writeonly image2D color;// read write
-
-layout(set = 2, binding = 0) uniform Camera {
+layout(set = 2, binding = 0) uniform CameraUniformBuffer {
     vec3 eye_pos;
     vec3 up_dir;
     vec3 from;
@@ -62,5 +65,10 @@ Hit hit_scene(Ray ray)  {
     Hit hit;
     return hit;
 }
+*/
 
-void main() { }
+void main() {
+    ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
+    vec4 col = imageLoad(resultImage, pos);
+    imageStore(resultImage, pos, vec4(1, 0, 1, 1));
+}

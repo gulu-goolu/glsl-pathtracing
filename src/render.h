@@ -39,24 +39,53 @@ private:
     };
 
     struct SceneBuffer {
-        Buffer hierarchy_buffer;
-        Buffer integers_buffer;
-        Buffer floats_buffer;
-        Buffer lights_buffer;
+        Buffer hierarchyReadonlyBuffer;
+        Buffer integersReadonlyBuffer;
+        Buffer floatsReadonlyBuffer;
+        Buffer lightsReadonlyBuffer;
 
-        VkDescriptorSetLayout descriptor_set_layout;
-        VkDescriptorSet descriptor_set;
-        VkDescriptorPool descriptor_set_pool;
+        VkDescriptorSetLayout sceneDescriptorSetLayout;
+        VkDescriptorSet sceneDescriptorSet;
+        VkDescriptorPool sceneDescriptorSetPool;
     };
+
+    void sceneInitialize();
+    void sceneFinalize();
 
     struct Trace {
-        VkDescriptorSetLayout scene_set_layout;
-        VkDescriptorSet scene_set;
-        VkDescriptorPool descriptor_pool;
+        VkDescriptorPool descriptorPool;
 
-        Buffer buffer;
-        Image result;
+        Image2D resultImage;
+        VkSampler resultImmutableSampler;
+        VkDescriptorSetLayout resultWriteSetLayout;
+        VkDescriptorSet resultWriteSet;
+        VkDescriptorSetLayout resultReadSetLayout;
+        VkDescriptorSet resultReadSet;
+
+        Buffer cameraUniformBuffer;
+        VkDescriptorSetLayout cameraDescriptorSetLayout;
+        VkDescriptorSet cameraDescriptorSet;
+
+        VkPipelineLayout pipelineLayout;
+        VkPipeline pipeline;
     };
+
+    void traceInitialize();
+    void traceFinalize();
+    void traceCreateDescriptorPool();
+    void traceCreateResultImage();
+    void traceCreatePipelineLayout();
+    void traceCreatePipeline();
+    void traceUpdateResultImageLayout(VkCommandBuffer commandBuffer,
+        VkAccessFlags srcAccessFlags,
+        VkAccessFlags dstAccessFlags,
+        VkImageLayout oldLayout,
+        VkImageLayout newLayout);
+    void traceWriteDescriptor(VkDescriptorSet set,
+        uint32_t dstBinding,
+        VkDescriptorType descriptorType,
+        const VkDescriptorImageInfo *imageInfo);
+    void traceDispatch(VkCommandBuffer commandBuffer);
 
     struct Display {
         VkRenderPass renderPass = VK_NULL_HANDLE;
@@ -66,23 +95,15 @@ private:
         VkPipeline pipeline = VK_NULL_HANDLE;
     };
 
-    void createSceneBuffer();
-    void destroySceneBuffer();
-
-    void createTrace();
-    void destroyTrace();
-
-    void createDisplay();
-    void destroyDisplay();
-    void createDisplayRenderPass();
-    void createDisplayFramebuffers();
-    void createDisplayPipelineLayout();
-    void createDisplayPipeline();
+    void displayInitialize();
+    void displayFinalize();
+    void displayCreateRenderPass();
+    void displayCreateFramebuffers();
+    void displayCreatePipelineLayout();
+    void displayCreatePipeline();
     void displayDraw(VkCommandBuffer commandBuffer, uint32_t imageIndex);
 
     void buildCommandBuffer();
-
-    VkShaderModule loadShaderModule(const char *filename);
 
     Device *device = nullptr;
     SwapChain *swap_chain = nullptr;

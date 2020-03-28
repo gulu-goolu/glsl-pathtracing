@@ -70,9 +70,9 @@ void Render::initialize(Device *_device,
     swap_chain = _swap_chain;
     scene = _scene;
 
-    createSceneBuffer();
-    createTrace();
-    createDisplay();
+    sceneInitialize();
+    traceInitialize();
+    displayInitialize();
 
     VkFenceCreateInfo submitFenceInfo = {};
     submitFenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
@@ -107,9 +107,9 @@ void Render::finalize() {
         vkDestroyCommandPool(device->vk_device, command_pool_, nullptr);
     }
 
-    destroyDisplay();
-    destroyTrace();
-    destroySceneBuffer();
+    displayFinalize();
+    traceFinalize();
+    sceneFinalize();
 }
 
 void Render::updateCamera(const Camera &camera) {}
@@ -129,26 +129,290 @@ void Render::drawFrame(uint32_t image_index) {
     MUST_SUCCESS(vkResetFences(device->vk_device, 1, &submit_fence_));
 }
 
-void Render::createSceneBuffer() {
+void Render::sceneInitialize() {
     ScenePack pack_;
     // todo
     // pack_.initialize(scene->root);
 }
 
-void Render::destroySceneBuffer() {}
+void Render::sceneFinalize() {}
 
-void Render::createTrace() {}
-
-void Render::destroyTrace() {}
-
-void Render::createDisplay() {
-    createDisplayRenderPass();
-    createDisplayFramebuffers();
-    createDisplayPipelineLayout();
-    createDisplayPipeline();
+void Render::traceInitialize() {
+    traceCreateDescriptorPool();
+    traceCreateResultImage();
+    traceCreatePipelineLayout();
+    traceCreatePipeline();
 }
 
-void Render::destroyDisplay() {
+void Render::traceFinalize() {
+    vkDestroyPipeline(device->vk_device, trace_.pipeline, nullptr);
+    vkDestroySampler(device->vk_device, trace_.resultImmutableSampler, nullptr);
+    vkDestroyDescriptorSetLayout(
+        device->vk_device, trace_.resultWriteSetLayout, nullptr);
+    vkDestroyDescriptorSetLayout(
+        device->vk_device, trace_.resultReadSetLayout, nullptr);
+    vkDestroyDescriptorPool(device->vk_device, trace_.descriptorPool, nullptr);
+    vkDestroyPipelineLayout(device->vk_device, trace_.pipelineLayout, nullptr);
+    device->destroyImage2D(&trace_.resultImage);
+}
+
+void Render::traceCreateDescriptorPool() {
+    std::array<VkDescriptorPoolSize, 4> descriptorPoolSizes = {};
+    descriptorPoolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    descriptorPoolSizes[0].descriptorCount = 1; // camera
+
+    descriptorPoolSizes[1].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    descriptorPoolSizes[1].descriptorCount = 4;
+
+    descriptorPoolSizes[2].type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    descriptorPoolSizes[2].descriptorCount = 1;
+
+    descriptorPoolSizes[3].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    descriptorPoolSizes[3].descriptorCount = 1;
+
+    VkDescriptorPoolCreateInfo descriptorPoolCreateInfo = {};
+    descriptorPoolCreateInfo.sType =
+        VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    descriptorPoolCreateInfo.maxSets = 3;
+    descriptorPoolCreateInfo.poolSizeCount =
+        static_cast<uint32_t>(descriptorPoolSizes.size());
+    descriptorPoolCreateInfo.pPoolSizes = descriptorPoolSizes.data();
+    MUST_SUCCESS(vkCreateDescriptorPool(device->vk_device,
+        &descriptorPoolCreateInfo,
+        nullptr,
+        &trace_.descriptorPool));
+}
+
+void Render::traceCreateResultImage() {
+    device->createTexture2D(VK_FORMAT_R32G32B32A32_SFLOAT,
+        swap_chain->image_extent,
+        VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT |
+            VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        VK_IMAGE_ASPECT_COLOR_BIT,
+        &trace_.resultImage);
+
+    // create sampler
+    VkSamplerCreateInfo samplerCreateInfo = {};
+    samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
+    samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
+    samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
+    samplerCreateInfo.compareEnable = VK_FALSE;
+    samplerCreateInfo.anisotropyEnable = VK_FALSE;
+    samplerCreateInfo.magFilter = VK_FILTER_LINEAR;
+    samplerCreateInfo.minFilter = VK_FILTER_NEAREST;
+    MUST_SUCCESS(vkCreateSampler(device->vk_device,
+        &samplerCreateInfo,
+        nullptr,
+        &trace_.resultImmutableSampler));
+
+    // create descriptor set layout
+    std::array<VkDescriptorSetLayoutBinding, 1> resultBindings = {};
+    resultBindings[0].descriptorCount = 1;
+    resultBindings[0].binding = 0;
+    resultBindings[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    resultBindings[0].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+    VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo = {};
+    descriptorSetLayoutCreateInfo.sType =
+        VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    descriptorSetLayoutCreateInfo.bindingCount = 1;
+    descriptorSetLayoutCreateInfo.pBindings = resultBindings.data();
+    MUST_SUCCESS(vkCreateDescriptorSetLayout(device->vk_device,
+        &descriptorSetLayoutCreateInfo,
+        nullptr,
+        &trace_.resultWriteSetLayout));
+
+    // allocate descriptor set
+    VkDescriptorSetAllocateInfo writeSetAllocateInfo = {};
+    writeSetAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    writeSetAllocateInfo.descriptorPool = trace_.descriptorPool;
+    writeSetAllocateInfo.descriptorSetCount = 1;
+    writeSetAllocateInfo.pSetLayouts = &trace_.resultWriteSetLayout;
+    MUST_SUCCESS(vkAllocateDescriptorSets(
+        device->vk_device, &writeSetAllocateInfo, &trace_.resultWriteSet));
+
+    // write descriptor
+    VkDescriptorImageInfo storageImageDescriptor = {};
+    storageImageDescriptor.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+    storageImageDescriptor.imageView = trace_.resultImage.imageView;
+    storageImageDescriptor.sampler = VK_NULL_HANDLE;
+    traceWriteDescriptor(trace_.resultWriteSet,
+        0,
+        VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+        &storageImageDescriptor);
+
+    // create read setLayout
+    VkDescriptorSetLayoutBinding readSetLayoutBinding = {};
+    readSetLayoutBinding.descriptorCount = 1;
+    readSetLayoutBinding.descriptorType =
+        VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    readSetLayoutBinding.binding = 0;
+    readSetLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    readSetLayoutBinding.pImmutableSamplers = &trace_.resultImmutableSampler;
+
+    VkDescriptorSetLayoutCreateInfo readSetLayoutCreateInfo = {};
+    readSetLayoutCreateInfo.sType =
+        VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    readSetLayoutCreateInfo.bindingCount = 1;
+    readSetLayoutCreateInfo.pBindings = &readSetLayoutBinding;
+    MUST_SUCCESS(vkCreateDescriptorSetLayout(device->vk_device,
+        &readSetLayoutCreateInfo,
+        nullptr,
+        &trace_.resultReadSetLayout));
+
+    // allocate read set
+    VkDescriptorSetAllocateInfo readSetAllocateInfo = {};
+    readSetAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    readSetAllocateInfo.descriptorPool = trace_.descriptorPool;
+    readSetAllocateInfo.descriptorSetCount = 1;
+    readSetAllocateInfo.pSetLayouts = &trace_.resultReadSetLayout;
+    MUST_SUCCESS(vkAllocateDescriptorSets(
+        device->vk_device, &readSetAllocateInfo, &trace_.resultReadSet));
+
+    // write to sampler
+    VkDescriptorImageInfo sampledImageDescriptor = {};
+    sampledImageDescriptor.sampler = VK_NULL_HANDLE;
+    sampledImageDescriptor.imageView = trace_.resultImage.imageView;
+    sampledImageDescriptor.imageLayout =
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    traceWriteDescriptor(trace_.resultReadSet,
+        0,
+        VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+        &sampledImageDescriptor);
+}
+
+void Render::traceCreatePipelineLayout() {
+    std::array<VkDescriptorSetLayout, 1> setLayouts = {};
+    setLayouts[0] = trace_.resultWriteSetLayout;
+
+    VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {};
+    pipelineLayoutCreateInfo.sType =
+        VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pipelineLayoutCreateInfo.setLayoutCount =
+        static_cast<uint32_t>(setLayouts.size());
+    pipelineLayoutCreateInfo.pSetLayouts = setLayouts.data();
+
+    MUST_SUCCESS(vkCreatePipelineLayout(device->vk_device,
+        &pipelineLayoutCreateInfo,
+        nullptr,
+        &trace_.pipelineLayout));
+}
+
+void Render::traceCreatePipeline() {
+    VkPipelineShaderStageCreateInfo shaderStageCreateInfo = {};
+    shaderStageCreateInfo.sType =
+        VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    shaderStageCreateInfo.module =
+        device->loadShaderModule("res/trace.comp.spv");
+    shaderStageCreateInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+    shaderStageCreateInfo.pName = "main";
+
+    VkComputePipelineCreateInfo computePipelineCreateInfo = {};
+    computePipelineCreateInfo.sType =
+        VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+    computePipelineCreateInfo.layout = trace_.pipelineLayout;
+    computePipelineCreateInfo.stage = shaderStageCreateInfo;
+    MUST_SUCCESS(vkCreateComputePipelines(device->vk_device,
+        VK_NULL_HANDLE,
+        1,
+        &computePipelineCreateInfo,
+        nullptr,
+        &trace_.pipeline));
+
+    vkDestroyShaderModule(
+        device->vk_device, shaderStageCreateInfo.module, nullptr);
+}
+
+void Render::traceUpdateResultImageLayout(VkCommandBuffer commandBuffer,
+    VkAccessFlags srcAccessFlags,
+    VkAccessFlags dstAccessFlags,
+    VkImageLayout oldLayout,
+    VkImageLayout newLayout) {
+    VkImageMemoryBarrier imageMemoryBarrier = {};
+    imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    imageMemoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    imageMemoryBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    imageMemoryBarrier.srcAccessMask = srcAccessFlags;
+    imageMemoryBarrier.dstAccessMask = dstAccessFlags;
+    imageMemoryBarrier.oldLayout = oldLayout;
+    imageMemoryBarrier.newLayout = newLayout;
+    imageMemoryBarrier.image = trace_.resultImage.image;
+    imageMemoryBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    imageMemoryBarrier.subresourceRange.baseMipLevel = 0;
+    imageMemoryBarrier.subresourceRange.levelCount = 1;
+    imageMemoryBarrier.subresourceRange.baseArrayLayer = 0;
+    imageMemoryBarrier.subresourceRange.layerCount = 1;
+
+    vkCmdPipelineBarrier(commandBuffer,
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        0,
+        0,
+        nullptr,
+        0,
+        nullptr,
+        1,
+        &imageMemoryBarrier);
+}
+
+void Render::traceWriteDescriptor(VkDescriptorSet set,
+    uint32_t dstBinding,
+    VkDescriptorType descriptorType,
+    const VkDescriptorImageInfo *imageInfo) {
+    VkWriteDescriptorSet writeDescriptorSet = {};
+    writeDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    writeDescriptorSet.descriptorType = descriptorType;
+    writeDescriptorSet.dstSet = set;
+    writeDescriptorSet.dstBinding = dstBinding;
+    writeDescriptorSet.dstArrayElement = 0;
+    writeDescriptorSet.descriptorCount = 1;
+    writeDescriptorSet.pImageInfo = imageInfo;
+    vkUpdateDescriptorSets(
+        device->vk_device, 1, &writeDescriptorSet, 0, nullptr);
+}
+
+void Render::traceDispatch(VkCommandBuffer commandBuffer) {
+    // update resultImage Layout
+    traceUpdateResultImageLayout(commandBuffer,
+        VK_ACCESS_MEMORY_READ_BIT,
+        VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
+        VK_IMAGE_LAYOUT_UNDEFINED,
+        VK_IMAGE_LAYOUT_GENERAL);
+
+    // bind resources
+    // bind compute pipeline
+    vkCmdBindDescriptorSets(commandBuffer,
+        VK_PIPELINE_BIND_POINT_COMPUTE,
+        trace_.pipelineLayout,
+        0,
+        1,
+        &trace_.resultWriteSet,
+        0,
+        nullptr);
+    vkCmdBindPipeline(
+        commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, trace_.pipeline);
+    vkCmdDispatch(commandBuffer,
+        swap_chain->image_extent.width / 2,
+        swap_chain->image_extent.height / 2,
+        1);
+
+    // update resultImage layout
+    traceUpdateResultImageLayout(commandBuffer,
+        VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
+        VK_ACCESS_SHADER_READ_BIT,
+        VK_IMAGE_LAYOUT_GENERAL,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+}
+
+void Render::displayInitialize() {
+    displayCreateRenderPass();
+    displayCreateFramebuffers();
+    displayCreatePipelineLayout();
+    displayCreatePipeline();
+}
+
+void Render::displayFinalize() {
     vkDestroyPipeline(device->vk_device, display_.pipeline, nullptr);
     vkDestroyPipelineLayout(
         device->vk_device, display_.pipelineLayout, nullptr);
@@ -160,7 +424,7 @@ void Render::destroyDisplay() {
     }
 }
 
-void Render::createDisplayRenderPass() {
+void Render::displayCreateRenderPass() {
     std::array<VkAttachmentDescription, 1> attachmentDescriptions = {};
     // color buffer
     attachmentDescriptions[0].samples = VK_SAMPLE_COUNT_1_BIT;
@@ -214,7 +478,7 @@ void Render::createDisplayRenderPass() {
         &display_.renderPass));
 }
 
-void Render::createDisplayFramebuffers() {
+void Render::displayCreateFramebuffers() {
     display_.framebuffers.resize(swap_chain->vk_images.size());
     for (size_t i = 0; i < display_.framebuffers.size(); ++i) {
         VkFramebufferCreateInfo framebufferCreateInfo = {};
@@ -232,10 +496,16 @@ void Render::createDisplayFramebuffers() {
     }
 }
 
-void Render::createDisplayPipelineLayout() {
+void Render::displayCreatePipelineLayout() {
+    std::array<VkDescriptorSetLayout, 1> setLayouts = {};
+    setLayouts[0] = trace_.resultReadSetLayout;
+
     VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {};
     pipelineLayoutCreateInfo.sType =
         VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pipelineLayoutCreateInfo.setLayoutCount =
+        static_cast<uint32_t>(setLayouts.size());
+    pipelineLayoutCreateInfo.pSetLayouts = setLayouts.data();
 
     MUST_SUCCESS(vkCreatePipelineLayout(device->vk_device,
         &pipelineLayoutCreateInfo,
@@ -243,15 +513,15 @@ void Render::createDisplayPipelineLayout() {
         &display_.pipelineLayout));
 }
 
-void Render::createDisplayPipeline() {
+void Render::displayCreatePipeline() {
     std::vector<std::pair<VkShaderModule, VkShaderStageFlagBits>>
         shaderStages = {
             {
-                loadShaderModule("res/display.vert.spv"),
+                device->loadShaderModule("res/display.vert.spv"),
                 VK_SHADER_STAGE_VERTEX_BIT,
             },
             {
-                loadShaderModule("res/display.frag.spv"),
+                device->loadShaderModule("res/display.frag.spv"),
                 VK_SHADER_STAGE_FRAGMENT_BIT,
             },
         };
@@ -369,9 +639,17 @@ void Render::displayDraw(VkCommandBuffer commandBuffer, uint32_t imageIndex) {
     vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
     vkCmdSetScissor(commandBuffer, 0, 1, &renderPassBeginInfo.renderArea);
 
+    vkCmdBindDescriptorSets(commandBuffer,
+        VK_PIPELINE_BIND_POINT_GRAPHICS,
+        display_.pipelineLayout,
+        0,
+        1,
+        &trace_.resultReadSet,
+        0,
+        nullptr);
     vkCmdBindPipeline(
         commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, display_.pipeline);
-    vkCmdDraw(commandBuffer, 3, 1, 0, 0);
+    vkCmdDraw(commandBuffer, 6, 1, 0, 0);
 
     vkCmdEndRenderPass(commandBuffer);
 }
@@ -382,6 +660,7 @@ void Render::buildCommandBuffer() {
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
         MUST_SUCCESS(vkBeginCommandBuffer(command_buffers_[i], &beginInfo));
 
+        traceDispatch(command_buffers_[i]);
         displayDraw(command_buffers_[i], uint32_t(i));
 
         VkImageMemoryBarrier barrier = {};
@@ -411,22 +690,4 @@ void Render::buildCommandBuffer() {
 
         MUST_SUCCESS(vkEndCommandBuffer(command_buffers_[i]));
     }
-}
-
-VkShaderModule Render::loadShaderModule(const char *filename) {
-    auto blob = readFile(filename);
-    if (blob.empty()) {
-        return VK_NULL_HANDLE;
-    }
-
-    VkShaderModule shaderModule = VK_NULL_HANDLE;
-    VkShaderModuleCreateInfo shaderModuleCreateInfo = {};
-    shaderModuleCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-    shaderModuleCreateInfo.codeSize = static_cast<uint32_t>(blob.size());
-    shaderModuleCreateInfo.pCode =
-        reinterpret_cast<const uint32_t *>(blob.data());
-    MUST_SUCCESS(vkCreateShaderModule(
-        device->vk_device, &shaderModuleCreateInfo, nullptr, &shaderModule));
-
-    return shaderModule;
 }

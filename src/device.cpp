@@ -3,6 +3,7 @@
 //
 
 #include "device.h"
+#include "util.h"
 #include <unordered_set>
 
 static VkComponentMapping identityComponentMapping() {
@@ -109,11 +110,12 @@ void Device::createTexture2D(VkFormat format,
     VkImageUsageFlags usageFlags,
     VkMemoryPropertyFlags memoryFlags,
     VkImageAspectFlags aspectFlags,
-    Texture2D *texture) const {
+    Image2D *texture) const {
     VkImageCreateInfo imageCreateInfo = {};
     imageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     imageCreateInfo.extent = { extent.width, extent.height, 1 };
     imageCreateInfo.format = format;
+    imageCreateInfo.usage = usageFlags;
     imageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
     imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
     imageCreateInfo.arrayLayers = 1;
@@ -149,7 +151,7 @@ void Device::createTexture2D(VkFormat format,
         vk_device, &viewCreateInfo, nullptr, &texture->imageView));
 }
 
-void Device::destroyTexture2D(Texture2D *t) const {
+void Device::destroyImage2D(Image2D *t) const {
     if (!t) {
         return;
     }
@@ -215,6 +217,24 @@ void Device::flushTransientCommandBuffer(VkCommandBuffer commandBuffer) {
     MUST_SUCCESS(vkQueueSubmit(q, 1, &submitInfo, transient_fence));
 
     MUST_SUCCESS(vkQueueWaitIdle(q));
+}
+
+VkShaderModule Device::loadShaderModule(const char *filename) const {
+    auto blob = readFile(filename);
+    if (blob.empty()) {
+        return VK_NULL_HANDLE;
+    }
+
+    VkShaderModule shaderModule = VK_NULL_HANDLE;
+    VkShaderModuleCreateInfo shaderModuleCreateInfo = {};
+    shaderModuleCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+    shaderModuleCreateInfo.codeSize = static_cast<uint32_t>(blob.size());
+    shaderModuleCreateInfo.pCode =
+        reinterpret_cast<const uint32_t *>(blob.data());
+    MUST_SUCCESS(vkCreateShaderModule(
+        vk_device, &shaderModuleCreateInfo, nullptr, &shaderModule));
+
+    return shaderModule;
 }
 
 void Device::createInstance() {

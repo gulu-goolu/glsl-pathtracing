@@ -24,7 +24,7 @@
 
 struct StorageBuffer {};
 
-struct Texture2D {
+struct Image2D {
     VkImage image;
     VkDeviceMemory deviceMemory;
     VkImageView imageView;
@@ -49,12 +49,14 @@ public:
         VkImageUsageFlags usageFlags,
         VkMemoryPropertyFlags memoryFlags,
         VkImageAspectFlags aspectFlags,
-        Texture2D *texture) const;
+        Image2D *texture) const;
 
-    void destroyTexture2D(Texture2D *t) const;
+    void destroyImage2D(Image2D *t) const;
 
     VkCommandBuffer beginTransientCommandBuffer(uint32_t queueFamilyIndex);
     void flushTransientCommandBuffer(VkCommandBuffer commandBuffer);
+
+    VkShaderModule loadShaderModule(const char *filename) const;
 
     VkInstance vk_instance = VK_NULL_HANDLE;
     VkSurfaceKHR vk_surface = VK_NULL_HANDLE;
