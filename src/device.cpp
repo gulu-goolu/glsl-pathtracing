@@ -80,32 +80,44 @@ uint32_t Device::getMemoryType(uint32_t type_bits,
 void Device::createBuffer(VkDeviceSize size,
     VkBufferUsageFlags usage,
     VkMemoryPropertyFlags memoryFlags,
-    VkBuffer *buffer,
-    VkDeviceMemory *memory) {
+    Buffer *buffer) {
     VkBufferCreateInfo bufferCreateInfo = {};
     bufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
     bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     bufferCreateInfo.usage = usage;
     bufferCreateInfo.size = size;
-    vkCreateBuffer(vk_device, &bufferCreateInfo, nullptr, buffer);
+    vkCreateBuffer(vk_device, &bufferCreateInfo, nullptr, &buffer->vk_buffer);
 
-    if (memory) {
-        VkMemoryRequirements memoryRequirements;
-        vkGetBufferMemoryRequirements(vk_device, *buffer, &memoryRequirements);
+    VkMemoryRequirements memoryRequirements;
+    vkGetBufferMemoryRequirements(
+        vk_device, buffer->vk_buffer, &memoryRequirements);
 
-        VkMemoryAllocateInfo memoryAllocateInfo = {};
-        memoryAllocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-        memoryAllocateInfo.allocationSize = memoryRequirements.size;
-        memoryAllocateInfo.memoryTypeIndex =
-            getMemoryType(memoryRequirements.memoryTypeBits, memoryFlags);
-        MUST_SUCCESS(
-            vkAllocateMemory(vk_device, &memoryAllocateInfo, nullptr, memory));
+    VkMemoryAllocateInfo memoryAllocateInfo = {};
+    memoryAllocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    memoryAllocateInfo.allocationSize = memoryRequirements.size;
+    memoryAllocateInfo.memoryTypeIndex =
+        getMemoryType(memoryRequirements.memoryTypeBits, memoryFlags);
+    MUST_SUCCESS(vkAllocateMemory(
+        vk_device, &memoryAllocateInfo, nullptr, &buffer->vk_deviceMemory));
 
-        MUST_SUCCESS(vkBindBufferMemory(vk_device, *buffer, *memory, 0));
+    MUST_SUCCESS(vkBindBufferMemory(
+        vk_device, buffer->vk_buffer, buffer->vk_deviceMemory, 0));
+}
+
+void Device::destroyBuffer(Buffer *buffer) {
+    if (!buffer) {
+        return;
+    }
+
+    if (buffer->vk_buffer) {
+        vkDestroyBuffer(vk_device, buffer->vk_buffer, nullptr);
+    }
+    if (buffer->vk_deviceMemory) {
+        vkFreeMemory(vk_device, buffer->vk_deviceMemory, nullptr);
     }
 }
 
-void Device::createTexture2D(VkFormat format,
+void Device::createImage2D(VkFormat format,
     VkExtent2D extent,
     VkImageUsageFlags usageFlags,
     VkMemoryPropertyFlags memoryFlags,

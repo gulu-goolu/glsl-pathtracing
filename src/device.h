@@ -22,7 +22,11 @@
         } \
     } while (false)
 
-struct StorageBuffer {};
+struct Buffer {
+    VkDeviceMemory vk_deviceMemory;
+    VkBuffer vk_buffer;
+    void *data_ptr;
+};
 
 struct Image2D {
     VkImage image;
@@ -41,10 +45,11 @@ public:
     void createBuffer(VkDeviceSize size,
         VkBufferUsageFlags usage,
         VkMemoryPropertyFlags memoryFlags,
-        VkBuffer *buffer,
-        VkDeviceMemory *memory);
+        Buffer *buffer);
+    void destroyBuffer(Buffer *buffer);
+    void mapBuffer(Buffer *buffer);
 
-    void createTexture2D(VkFormat format,
+    void createImage2D(VkFormat format,
         VkExtent2D extent,
         VkImageUsageFlags usageFlags,
         VkMemoryPropertyFlags memoryFlags,
@@ -55,6 +60,24 @@ public:
 
     VkCommandBuffer beginTransientCommandBuffer(uint32_t queueFamilyIndex);
     void flushTransientCommandBuffer(VkCommandBuffer commandBuffer);
+
+    template<size_t PoolSizeCount>
+    VkDescriptorPool createDescriptorPool(
+        const std::array<VkDescriptorPoolSize, PoolSizeCount> &sizes,
+        uint32_t maxSets) {
+        VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
+        VkDescriptorPoolCreateInfo descriptorPoolCreateInfo = {};
+        descriptorPoolCreateInfo.sType =
+            VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+        descriptorPoolCreateInfo.poolSizeCount =
+            static_cast<uint32_t>(PoolSizeCount);
+        descriptorPoolCreateInfo.pPoolSizes = sizes.data();
+        descriptorPoolCreateInfo.maxSets = maxSets;
+        MUST_SUCCESS(vkCreateDescriptorPool(
+            vk_device, &descriptorPoolCreateInfo, nullptr, &descriptorPool));
+
+        return descriptorPool;
+    }
 
     VkShaderModule loadShaderModule(const char *filename) const;
 

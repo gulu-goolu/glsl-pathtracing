@@ -27,17 +27,6 @@ public:
     void drawFrame(uint32_t image_index);
 
 private:
-    struct Buffer {
-        VkDeviceMemory vk_device_memory;
-        VkBuffer vk_buffer;
-    };
-
-    struct Image {
-        VkDeviceMemory vk_device_memory;
-        VkImage vk_image;
-        VkImageView vk_image_view;
-    };
-
     struct SceneBuffer {
         Buffer hierarchyReadonlyBuffer;
         Buffer integersReadonlyBuffer;
@@ -81,13 +70,24 @@ private:
         VkAccessFlags dstAccessFlags,
         VkImageLayout oldLayout,
         VkImageLayout newLayout);
-    void traceWriteDescriptor(VkDescriptorSet set,
+    void traceWriteImageDescriptor(VkDescriptorSet set,
         uint32_t dstBinding,
         VkDescriptorType descriptorType,
         const VkDescriptorImageInfo *imageInfo);
     void traceDispatch(VkCommandBuffer commandBuffer);
 
+    struct TimesUniformBuffer {
+        Buffer buffer;
+        VkDescriptorPool descriptorPool;
+        VkDescriptorSetLayout setLayout;
+        VkDescriptorSet set;
+    };
+
     struct Display {
+        VkDescriptorPool descriptorPool;
+
+        TimesUniformBuffer timesUniformBuffer;
+
         VkRenderPass renderPass = VK_NULL_HANDLE;
         std::vector<VkFramebuffer> framebuffers;
 
@@ -97,6 +97,8 @@ private:
 
     void displayInitialize();
     void displayFinalize();
+    void displayCreateDescriptorPool();
+    void displayCreateTimesUniformBuffer();
     void displayCreateRenderPass();
     void displayCreateFramebuffers();
     void displayCreatePipelineLayout();
