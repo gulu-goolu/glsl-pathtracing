@@ -81,6 +81,11 @@ void Device::createBuffer(VkDeviceSize size,
     VkBufferUsageFlags usage,
     VkMemoryPropertyFlags memoryFlags,
     Buffer *buffer) {
+    buffer->memoryFlags = memoryFlags;
+    if (buffer->memoryFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) {
+        buffer->memoryFlags |= VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+    }
+
     VkBufferCreateInfo bufferCreateInfo = {};
     bufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
     bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
@@ -114,6 +119,95 @@ void Device::destroyBuffer(Buffer *buffer) {
     }
     if (buffer->vk_deviceMemory) {
         vkFreeMemory(vk_device, buffer->vk_deviceMemory, nullptr);
+    }
+}
+
+void Device::updateBuffer(Buffer *buffer,
+    size_t offset,
+    size_t size,
+    VkPipelineStageFlags srcPipelineStage,
+    VkPipelineStageFlags dstPipelineStage,
+    VkAccessFlags srcAccessMask,
+    VkAccessFlags dstAccessMask,
+    const void *data) {
+    // create staging resources
+    Buffer staging{};
+    if (buffer->memoryFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) {
+        createBuffer(size,
+            VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+            VK_MEMORY_PROPERTY_HOST_COHERENT_BIT |
+                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
+            &staging);
+        updateBuffer(&staging,
+            0,
+            size,
+            VK_PIPELINE_STAGE_HOST_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_ACCESS_HOST_WRITE_BIT,
+            VK_ACCESS_TRANSFER_READ_BIT,
+            data);
+    }
+
+    // copy buffer
+    VkCommandBuffer cmd = beginTransientCommandBuffer(graphics_queue_index);
+
+    const auto set_barrier = [&cmd, &buffer, &offset, &size](
+                                 VkPipelineStageFlags srcStage,
+                                 VkPipelineStageFlags dstStage,
+                                 VkAccessFlags srcMask,
+                                 VkAccessFlags dstMask) {
+        VkBufferMemoryBarrier barrier = {};
+        barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.srcAccessMask = srcMask;
+        barrier.dstAccessMask = dstMask;
+        barrier.buffer = buffer->vk_buffer;
+        barrier.offset = offset;
+        barrier.size = size;
+        vkCmdPipelineBarrier(
+            cmd, srcStage, dstStage, 0, 0, nullptr, 1, &barrier, 0, nullptr);
+    };
+
+    VkPipelineStageFlags currentStage = 0;
+    VkAccessFlags currentAccessMask = 0;
+
+    if (buffer->memoryFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) {
+        // set transfer barrier
+        currentAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        currentStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+        set_barrier(
+            srcPipelineStage, currentStage, srcAccessMask, currentAccessMask);
+
+        VkBufferCopy copy = {};
+        copy.srcOffset = 0;
+        copy.dstOffset = offset;
+        copy.size = size;
+        vkCmdCopyBuffer(cmd, staging.vk_buffer, buffer->vk_buffer, 1, &copy);
+    } else {
+        // update barrier
+        currentStage = VK_PIPELINE_STAGE_HOST_BIT;
+        currentAccessMask = VK_ACCESS_HOST_WRITE_BIT;
+        set_barrier(
+            srcPipelineStage, currentStage, srcAccessMask, currentAccessMask);
+
+        // copy data
+        void *mapped = nullptr;
+        MUST_SUCCESS(vkMapMemory(
+            vk_device, buffer->vk_deviceMemory, offset, size, 0, &mapped));
+        memcpy(mapped, data, size);
+        vkUnmapMemory(vk_device, buffer->vk_deviceMemory);
+    }
+
+    // update barrier
+    set_barrier(
+        currentStage, dstPipelineStage, currentAccessMask, dstAccessMask);
+
+    flushTransientCommandBuffer(cmd);
+
+    // destroy staging resources
+    if (buffer->memoryFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) {
+        destroyBuffer(&staging);
     }
 }
 
@@ -227,6 +321,8 @@ void Device::flushTransientCommandBuffer(VkCommandBuffer commandBuffer) {
     submitInfo.commandBufferCount = 1;
     submitInfo.pCommandBuffers = &commandBuffer;
     MUST_SUCCESS(vkQueueSubmit(q, 1, &submitInfo, transient_fence));
+    MUST_SUCCESS(vkWaitForFences(vk_device, 1, &transient_fence, VK_FALSE, UINT64_MAX));
+    MUST_SUCCESS(vkResetFences(vk_device, 1, &transient_fence));
 
     MUST_SUCCESS(vkQueueWaitIdle(q));
 }

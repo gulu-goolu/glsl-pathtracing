@@ -8,8 +8,8 @@
 #include <unordered_map>
 
 struct NodePack {
-    uint32_t type;
-    uint32_t object;
+    uint32_t shape_type;
+    uint32_t shape;
     uint32_t left;
     uint32_t right;
 };
@@ -66,10 +66,12 @@ void Render::initialize(Device *_device,
     SwapChain *_swap_chain,
     Scene *_scene,
     const Camera &_camera) {
+    // save arguments
     device = _device;
     swap_chain = _swap_chain;
     scene = _scene;
 
+    // initialize components
     sceneInitialize();
     traceInitialize();
     displayInitialize();
@@ -130,12 +132,127 @@ void Render::drawFrame(uint32_t image_index) {
 }
 
 void Render::sceneInitialize() {
+    sceneCreateDescriptorPool();
+    sceneCreateDescriptorSetLayout();
+    sceneAllocateDescriptorSet();
+
     ScenePack pack_;
     // todo
     // pack_.initialize(scene->root);
+    //
+    NodePack pack[4] = {};
+    pack[0].shape_type = 0;
+    pack[1].shape_type = 1;
+    pack[2].shape_type = 0;
+    pack[3].shape_type = 1;
+    sceneCreateStorageBuffer(
+        &scene_buffer_.hierarchyReadonlyBuffer, 0, sizeof(pack), pack);
 }
 
-void Render::sceneFinalize() {}
+void Render::sceneFinalize() {
+    vkDestroyDescriptorSetLayout(
+        device->vk_device, scene_buffer_.sceneDescriptorSetLayout, nullptr);
+    vkDestroyDescriptorPool(
+        device->vk_device, scene_buffer_.sceneDescriptorSetPool, nullptr);
+    device->destroyBuffer(&scene_buffer_.hierarchyReadonlyBuffer);
+}
+
+void Render::sceneCreateDescriptorPool() {
+    std::array<VkDescriptorPoolSize, 1> pool_sizes = {};
+    pool_sizes[0].descriptorCount = 4;
+    pool_sizes[0].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+
+    VkDescriptorPoolCreateInfo descriptor_pool_create_info = {};
+    descriptor_pool_create_info.sType =
+        VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    descriptor_pool_create_info.maxSets = 1;
+    descriptor_pool_create_info.poolSizeCount =
+        static_cast<uint32_t>(pool_sizes.size());
+    descriptor_pool_create_info.pPoolSizes = pool_sizes.data();
+    MUST_SUCCESS(vkCreateDescriptorPool(device->vk_device,
+        &descriptor_pool_create_info,
+        nullptr,
+        &scene_buffer_.sceneDescriptorSetPool));
+}
+
+void Render::sceneCreateDescriptorSetLayout() {
+    std::array<VkDescriptorSetLayoutBinding, 4>
+        descriptor_set_layout_bindings = {};
+    for (uint32_t i = 0; i < 4; ++i) {
+        descriptor_set_layout_bindings[i].binding = i;
+        descriptor_set_layout_bindings[i].descriptorCount = 1;
+        descriptor_set_layout_bindings[i].descriptorType =
+            VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        descriptor_set_layout_bindings[i].stageFlags =
+            VK_SHADER_STAGE_COMPUTE_BIT;
+    }
+
+    VkDescriptorSetLayoutCreateInfo descriptor_set_layout_create_info = {};
+    descriptor_set_layout_create_info.sType =
+        VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    descriptor_set_layout_create_info.bindingCount =
+        static_cast<uint32_t>(descriptor_set_layout_bindings.size());
+    descriptor_set_layout_create_info.pBindings =
+        descriptor_set_layout_bindings.data();
+    MUST_SUCCESS(vkCreateDescriptorSetLayout(device->vk_device,
+        &descriptor_set_layout_create_info,
+        nullptr,
+        &scene_buffer_.sceneDescriptorSetLayout));
+}
+
+void Render::sceneAllocateDescriptorSet() {
+    VkDescriptorSetAllocateInfo descriptor_set_allocate_info = {};
+    descriptor_set_allocate_info.sType =
+        VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    descriptor_set_allocate_info.descriptorPool =
+        scene_buffer_.sceneDescriptorSetPool;
+    descriptor_set_allocate_info.descriptorSetCount = 1;
+    descriptor_set_allocate_info.pSetLayouts =
+        &scene_buffer_.sceneDescriptorSetLayout;
+
+    MUST_SUCCESS(vkAllocateDescriptorSets(device->vk_device,
+        &descriptor_set_allocate_info,
+        &scene_buffer_.sceneDescriptorSet));
+}
+
+void Render::sceneWriteReadonlyBuffer(uint32_t binding, Buffer *buffer) const {
+    VkDescriptorBufferInfo buffer_info = {};
+    buffer_info.buffer = buffer->vk_buffer;
+    buffer_info.offset = 0;
+    buffer_info.range = VK_WHOLE_SIZE;
+
+    VkWriteDescriptorSet write_descriptor_set = {};
+    write_descriptor_set.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    write_descriptor_set.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    write_descriptor_set.dstSet = scene_buffer_.sceneDescriptorSet;
+    write_descriptor_set.descriptorCount = 1;
+    write_descriptor_set.dstBinding = binding;
+    write_descriptor_set.dstArrayElement = 0;
+    write_descriptor_set.pBufferInfo = &buffer_info;
+    vkUpdateDescriptorSets(
+        device->vk_device, 1, &write_descriptor_set, 0, nullptr);
+}
+
+void Render::sceneCreateStorageBuffer(Buffer *buffer,
+    uint32_t binding,
+    size_t data_size,
+    const void *data) const {
+    device->createBuffer(data_size,
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        buffer);
+
+    device->updateBuffer(buffer,
+        0,
+        data_size,
+        VK_PIPELINE_STAGE_HOST_BIT,
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        VK_ACCESS_MEMORY_READ_BIT,
+        VK_ACCESS_SHADER_READ_BIT,
+        data);
+
+    sceneWriteReadonlyBuffer(binding, buffer);
+}
 
 void Render::traceInitialize() {
     traceCreateDescriptorPool();
@@ -283,18 +400,19 @@ void Render::traceCreateResultImage() {
 }
 
 void Render::traceCreatePipelineLayout() {
-    std::array<VkDescriptorSetLayout, 1> setLayouts = {};
-    setLayouts[0] = trace_.resultWriteSetLayout;
+    std::array<VkDescriptorSetLayout, 2> descriptor_set_layouts = {};
+    descriptor_set_layouts[0] = trace_.resultWriteSetLayout;
+    descriptor_set_layouts[1] = scene_buffer_.sceneDescriptorSetLayout;
 
-    VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {};
-    pipelineLayoutCreateInfo.sType =
+    VkPipelineLayoutCreateInfo pipeline_layout_create_info = {};
+    pipeline_layout_create_info.sType =
         VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipelineLayoutCreateInfo.setLayoutCount =
-        static_cast<uint32_t>(setLayouts.size());
-    pipelineLayoutCreateInfo.pSetLayouts = setLayouts.data();
+    pipeline_layout_create_info.setLayoutCount =
+        static_cast<uint32_t>(descriptor_set_layouts.size());
+    pipeline_layout_create_info.pSetLayouts = descriptor_set_layouts.data();
 
     MUST_SUCCESS(vkCreatePipelineLayout(device->vk_device,
-        &pipelineLayoutCreateInfo,
+        &pipeline_layout_create_info,
         nullptr,
         &trace_.pipelineLayout));
 }
@@ -382,12 +500,15 @@ void Render::traceDispatch(VkCommandBuffer commandBuffer) {
 
     // bind resources
     // bind compute pipeline
+    std::array<VkDescriptorSet, 2> sets = {};
+    sets[0] = trace_.resultWriteSet;
+    sets[1] = scene_buffer_.sceneDescriptorSet;
     vkCmdBindDescriptorSets(commandBuffer,
         VK_PIPELINE_BIND_POINT_COMPUTE,
         trace_.pipelineLayout,
         0,
-        1,
-        &trace_.resultWriteSet,
+        static_cast<uint32_t>(sets.size()),
+        sets.data(),
         0,
         nullptr);
     vkCmdBindPipeline(

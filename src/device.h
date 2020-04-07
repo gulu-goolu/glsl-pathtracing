@@ -23,9 +23,9 @@
     } while (false)
 
 struct Buffer {
-    VkDeviceMemory vk_deviceMemory;
-    VkBuffer vk_buffer;
-    void *data_ptr;
+    VkDeviceMemory vk_deviceMemory = VK_NULL_HANDLE;
+    VkBuffer vk_buffer = VK_NULL_HANDLE;
+    VkMemoryPropertyFlags memoryFlags = 0;
 };
 
 struct Image2D {
@@ -34,9 +34,14 @@ struct Image2D {
     VkImageView imageView;
 };
 
+struct CommandBuffer {
+    VkCommandBuffer cmd;
+};
+
 class Device {
 public:
     void initialize(GLFWwindow *window);
+
     void finalize();
 
     [[nodiscard]] uint32_t getMemoryType(uint32_t typeBits,
@@ -46,8 +51,17 @@ public:
         VkBufferUsageFlags usage,
         VkMemoryPropertyFlags memoryFlags,
         Buffer *buffer);
+
     void destroyBuffer(Buffer *buffer);
-    void mapBuffer(Buffer *buffer);
+
+    void updateBuffer(Buffer *buffer,
+        size_t offset,
+        size_t size,
+        VkPipelineStageFlags srcPipelineStage,
+        VkPipelineStageFlags dstPipelineStage,
+        VkAccessFlags srcAccessMask,
+        VkAccessFlags dstAccessMask,
+        const void *data);
 
     void createImage2D(VkFormat format,
         VkExtent2D extent,
@@ -59,6 +73,7 @@ public:
     void destroyImage2D(Image2D *t) const;
 
     VkCommandBuffer beginTransientCommandBuffer(uint32_t queueFamilyIndex);
+
     void flushTransientCommandBuffer(VkCommandBuffer commandBuffer);
 
     template<size_t PoolSizeCount>
@@ -97,18 +112,22 @@ public:
 
 private:
     void createInstance();
+
     void selectPhysicalDevice();
+
     void createLogicDevice();
 };
 
 class SwapChain {
 public:
     void initialize(Device *device);
+
     void finalize();
 
     void resize();
 
     void acquire();
+
     void present();
 
     VkSwapchainKHR vk_swapchain = VK_NULL_HANDLE;
@@ -123,10 +142,13 @@ public:
 
 private:
     void createSwapChain();
+
     void destroySwapChain();
 
     void selectImageFormat();
+
     void retrieveImages();
+
     void createImageViews();
 
     Device *device = nullptr;

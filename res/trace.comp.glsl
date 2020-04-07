@@ -7,18 +7,19 @@ struct Node {
     uint shape_type;
     uint shape;
 
-    uint children;
-    uint count;
+    uint left;
+    uint right;
 };
 
 const uint BOUNDS = 0;
 const uint SHAPES = 1;
 
 layout(rgba32f, set = 0, binding = 0) uniform image2D resultImage;
-/*
+
 layout(set = 1, binding = 0) readonly buffer HierarchyBuffer {
     Node nodes[];
 };
+/*
 layout(set = 1, binding = 1) readonly buffer IntegersBuffer {
     uint integers[];
 };
@@ -70,5 +71,9 @@ Hit hit_scene(Ray ray)  {
 void main() {
     ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
     vec3 col = imageLoad(resultImage, pos).xyz + vec3(0.01);
-    imageStore(resultImage, pos, vec4(col, 1));
+    float r = float(nodes[0].shape_type);
+    float g = float(nodes[1].shape_type);
+    float b = float(nodes[2].shape_type);
+    float a = float(nodes[3].shape_type);
+    imageStore(resultImage, pos, vec4(r, g, b, a));
 }

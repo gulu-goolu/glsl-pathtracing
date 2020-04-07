@@ -40,6 +40,14 @@ private:
 
     void sceneInitialize();
     void sceneFinalize();
+    void sceneCreateDescriptorPool();
+    void sceneCreateDescriptorSetLayout();
+    void sceneAllocateDescriptorSet();
+    void sceneWriteReadonlyBuffer(uint32_t binding, Buffer *buffer) const;
+    void sceneCreateStorageBuffer(Buffer *buffer,
+        uint32_t binding,
+        size_t data_size,
+        const void *data) const;
 
     struct Trace {
         VkDescriptorPool descriptorPool;
