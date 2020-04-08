@@ -132,7 +132,6 @@ private:
 
     void displayInitialize();
     void displayFinalize();
-    void displayCreateDescriptorPool();
     void displayCreateTimesUniformBuffer();
     void displayCreateRenderPass();
     void displayCreateFramebuffers();

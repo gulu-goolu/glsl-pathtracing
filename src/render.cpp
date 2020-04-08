@@ -557,7 +557,6 @@ void Render::traceDispatch(VkCommandBuffer commandBuffer) const {
 }
 
 void Render::displayInitialize() {
-    displayCreateDescriptorPool();
     displayCreateTimesUniformBuffer();
     displayCreateRenderPass();
     displayCreateFramebuffers();
@@ -579,18 +578,6 @@ void Render::displayFinalize() {
     if (display_.renderPass) {
         vkDestroyRenderPass(device->vkDevice, display_.renderPass, nullptr);
     }
-}
-
-void Render::displayCreateDescriptorPool() {
-    std::array<VkDescriptorPoolSize, 1> poolSizes = {};
-    poolSizes[0].descriptorCount = 1;
-    poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-
-    VkDescriptorPoolCreateInfo poolCreateInfo = {};
-    poolCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    poolCreateInfo.maxSets = 1;
-    poolCreateInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
-    poolCreateInfo.pPoolSizes = poolSizes.data();
 }
 
 void Render::displayCreateTimesUniformBuffer() {
