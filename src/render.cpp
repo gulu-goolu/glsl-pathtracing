@@ -68,7 +68,7 @@ void Render::initialize(Device *_device,
     const Camera &_camera) {
     // save arguments
     device = _device;
-    swap_chain = _swap_chain;
+    swapChain_ = _swap_chain;
     scene = _scene;
 
     // initialize components
@@ -79,34 +79,34 @@ void Render::initialize(Device *_device,
     VkFenceCreateInfo submitFenceInfo = {};
     submitFenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
     MUST_SUCCESS(vkCreateFence(
-        device->vk_device, &submitFenceInfo, nullptr, &submit_fence_));
+        device->vkDevice, &submitFenceInfo, nullptr, &submitFence_));
 
     VkCommandPoolCreateInfo commandPoolCreateInfo = {};
     commandPoolCreateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
     commandPoolCreateInfo.queueFamilyIndex = device->graphics_queue_index;
     commandPoolCreateInfo.flags = 0;
     MUST_SUCCESS(vkCreateCommandPool(
-        device->vk_device, &commandPoolCreateInfo, nullptr, &command_pool_));
+        device->vkDevice, &commandPoolCreateInfo, nullptr, &commandPool_));
 
-    command_buffers_.resize(swap_chain->vk_images.size());
+    commandBuffers_.resize(swapChain_->vk_images.size());
     VkCommandBufferAllocateInfo allocateInfo = {};
     allocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    allocateInfo.commandPool = command_pool_;
+    allocateInfo.commandPool = commandPool_;
     allocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     allocateInfo.commandBufferCount =
-        static_cast<uint32_t>(swap_chain->vk_images.size());
+        static_cast<uint32_t>(swapChain_->vk_images.size());
     MUST_SUCCESS(vkAllocateCommandBuffers(
-        device->vk_device, &allocateInfo, command_buffers_.data()));
+        device->vkDevice, &allocateInfo, commandBuffers_.data()));
 
     buildCommandBuffer();
 }
 
 void Render::finalize() {
-    if (submit_fence_) {
-        vkDestroyFence(device->vk_device, submit_fence_, nullptr);
+    if (submitFence_) {
+        vkDestroyFence(device->vkDevice, submitFence_, nullptr);
     }
-    if (command_pool_) {
-        vkDestroyCommandPool(device->vk_device, command_pool_, nullptr);
+    if (commandPool_) {
+        vkDestroyCommandPool(device->vkDevice, commandPool_, nullptr);
     }
 
     displayFinalize();
@@ -114,21 +114,21 @@ void Render::finalize() {
     sceneFinalize();
 }
 
-void Render::updateCamera(const Camera &camera) {}
+void Render::reset(Scene *_scene, const Camera &camera) {}
 
 void Render::drawFrame(uint32_t image_index) {
     VkSubmitInfo submitInfo = {};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &command_buffers_[image_index];
+    submitInfo.pCommandBuffers = &commandBuffers_[image_index];
 
     VkQueue q = VK_NULL_HANDLE;
-    vkGetDeviceQueue(device->vk_device, device->graphics_queue_index, 0, &q);
+    vkGetDeviceQueue(device->vkDevice, device->graphics_queue_index, 0, &q);
 
-    MUST_SUCCESS(vkQueueSubmit(q, 1, &submitInfo, submit_fence_));
+    MUST_SUCCESS(vkQueueSubmit(q, 1, &submitInfo, submitFence_));
     MUST_SUCCESS(vkWaitForFences(
-        device->vk_device, 1, &submit_fence_, VK_FALSE, UINT64_MAX));
-    MUST_SUCCESS(vkResetFences(device->vk_device, 1, &submit_fence_));
+        device->vkDevice, 1, &submitFence_, VK_FALSE, UINT64_MAX));
+    MUST_SUCCESS(vkResetFences(device->vkDevice, 1, &submitFence_));
 }
 
 void Render::sceneInitialize() {
@@ -146,15 +146,15 @@ void Render::sceneInitialize() {
     pack[2].shape_type = 0;
     pack[3].shape_type = 1;
     sceneCreateStorageBuffer(
-        &scene_buffer_.hierarchyReadonlyBuffer, 0, sizeof(pack), pack);
+        &sceneBuffer_.hierarchyReadonlyBuffer, 0, sizeof(pack), pack);
 }
 
 void Render::sceneFinalize() {
     vkDestroyDescriptorSetLayout(
-        device->vk_device, scene_buffer_.sceneDescriptorSetLayout, nullptr);
+        device->vkDevice, sceneBuffer_.sceneDescriptorSetLayout, nullptr);
     vkDestroyDescriptorPool(
-        device->vk_device, scene_buffer_.sceneDescriptorSetPool, nullptr);
-    device->destroyBuffer(&scene_buffer_.hierarchyReadonlyBuffer);
+        device->vkDevice, sceneBuffer_.sceneDescriptorSetPool, nullptr);
+    device->destroyBuffer(&sceneBuffer_.hierarchyReadonlyBuffer);
 }
 
 void Render::sceneCreateDescriptorPool() {
@@ -169,10 +169,10 @@ void Render::sceneCreateDescriptorPool() {
     descriptor_pool_create_info.poolSizeCount =
         static_cast<uint32_t>(pool_sizes.size());
     descriptor_pool_create_info.pPoolSizes = pool_sizes.data();
-    MUST_SUCCESS(vkCreateDescriptorPool(device->vk_device,
+    MUST_SUCCESS(vkCreateDescriptorPool(device->vkDevice,
         &descriptor_pool_create_info,
         nullptr,
-        &scene_buffer_.sceneDescriptorSetPool));
+        &sceneBuffer_.sceneDescriptorSetPool));
 }
 
 void Render::sceneCreateDescriptorSetLayout() {
@@ -194,10 +194,10 @@ void Render::sceneCreateDescriptorSetLayout() {
         static_cast<uint32_t>(descriptor_set_layout_bindings.size());
     descriptor_set_layout_create_info.pBindings =
         descriptor_set_layout_bindings.data();
-    MUST_SUCCESS(vkCreateDescriptorSetLayout(device->vk_device,
+    MUST_SUCCESS(vkCreateDescriptorSetLayout(device->vkDevice,
         &descriptor_set_layout_create_info,
         nullptr,
-        &scene_buffer_.sceneDescriptorSetLayout));
+        &sceneBuffer_.sceneDescriptorSetLayout));
 }
 
 void Render::sceneAllocateDescriptorSet() {
@@ -205,14 +205,14 @@ void Render::sceneAllocateDescriptorSet() {
     descriptor_set_allocate_info.sType =
         VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
     descriptor_set_allocate_info.descriptorPool =
-        scene_buffer_.sceneDescriptorSetPool;
+        sceneBuffer_.sceneDescriptorSetPool;
     descriptor_set_allocate_info.descriptorSetCount = 1;
     descriptor_set_allocate_info.pSetLayouts =
-        &scene_buffer_.sceneDescriptorSetLayout;
+        &sceneBuffer_.sceneDescriptorSetLayout;
 
-    MUST_SUCCESS(vkAllocateDescriptorSets(device->vk_device,
+    MUST_SUCCESS(vkAllocateDescriptorSets(device->vkDevice,
         &descriptor_set_allocate_info,
-        &scene_buffer_.sceneDescriptorSet));
+        &sceneBuffer_.descriptorSet));
 }
 
 void Render::sceneWriteReadonlyBuffer(uint32_t binding, Buffer *buffer) const {
@@ -221,16 +221,16 @@ void Render::sceneWriteReadonlyBuffer(uint32_t binding, Buffer *buffer) const {
     buffer_info.offset = 0;
     buffer_info.range = VK_WHOLE_SIZE;
 
-    VkWriteDescriptorSet write_descriptor_set = {};
-    write_descriptor_set.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    write_descriptor_set.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    write_descriptor_set.dstSet = scene_buffer_.sceneDescriptorSet;
-    write_descriptor_set.descriptorCount = 1;
-    write_descriptor_set.dstBinding = binding;
-    write_descriptor_set.dstArrayElement = 0;
-    write_descriptor_set.pBufferInfo = &buffer_info;
+    VkWriteDescriptorSet writeDescriptorSet = {};
+    writeDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    writeDescriptorSet.dstSet = sceneBuffer_.descriptorSet;
+    writeDescriptorSet.descriptorCount = 1;
+    writeDescriptorSet.dstBinding = binding;
+    writeDescriptorSet.dstArrayElement = 0;
+    writeDescriptorSet.pBufferInfo = &buffer_info;
     vkUpdateDescriptorSets(
-        device->vk_device, 1, &write_descriptor_set, 0, nullptr);
+        device->vkDevice, 1, &writeDescriptorSet, 0, nullptr);
 }
 
 void Render::sceneCreateStorageBuffer(Buffer *buffer,
@@ -262,15 +262,17 @@ void Render::traceInitialize() {
 }
 
 void Render::traceFinalize() {
-    vkDestroyPipeline(device->vk_device, trace_.pipeline, nullptr);
-    vkDestroySampler(device->vk_device, trace_.resultImmutableSampler, nullptr);
+    vkDestroyPipeline(device->vkDevice, trace_.pipeline, nullptr);
+    vkDestroyDescriptorPool(device->vkDevice, trace_.descriptorPool, nullptr);
+    vkDestroyPipelineLayout(device->vkDevice, trace_.pipelineLayout, nullptr);
+
+    // result image
+    vkDestroySampler(device->vkDevice, trace_.result.immutableSampler, nullptr);
     vkDestroyDescriptorSetLayout(
-        device->vk_device, trace_.resultWriteSetLayout, nullptr);
+        device->vkDevice, trace_.result.storageSetLayout, nullptr);
     vkDestroyDescriptorSetLayout(
-        device->vk_device, trace_.resultReadSetLayout, nullptr);
-    vkDestroyDescriptorPool(device->vk_device, trace_.descriptorPool, nullptr);
-    vkDestroyPipelineLayout(device->vk_device, trace_.pipelineLayout, nullptr);
-    device->destroyImage2D(&trace_.resultImage);
+        device->vkDevice, trace_.result.sampledSetLayout, nullptr);
+    device->destroyImage2D(&trace_.result.image);
 }
 
 void Render::traceCreateDescriptorPool() {
@@ -294,7 +296,7 @@ void Render::traceCreateDescriptorPool() {
     descriptorPoolCreateInfo.poolSizeCount =
         static_cast<uint32_t>(descriptorPoolSizes.size());
     descriptorPoolCreateInfo.pPoolSizes = descriptorPoolSizes.data();
-    MUST_SUCCESS(vkCreateDescriptorPool(device->vk_device,
+    MUST_SUCCESS(vkCreateDescriptorPool(device->vkDevice,
         &descriptorPoolCreateInfo,
         nullptr,
         &trace_.descriptorPool));
@@ -302,12 +304,12 @@ void Render::traceCreateDescriptorPool() {
 
 void Render::traceCreateResultImage() {
     device->createImage2D(VK_FORMAT_R32G32B32A32_SFLOAT,
-        swap_chain->image_extent,
+        swapChain_->imageExtent,
         VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT |
             VK_IMAGE_USAGE_TRANSFER_DST_BIT,
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
         VK_IMAGE_ASPECT_COLOR_BIT,
-        &trace_.resultImage);
+        &trace_.result.image);
 
     // create sampler
     VkSamplerCreateInfo samplerCreateInfo = {};
@@ -319,10 +321,10 @@ void Render::traceCreateResultImage() {
     samplerCreateInfo.anisotropyEnable = VK_FALSE;
     samplerCreateInfo.magFilter = VK_FILTER_LINEAR;
     samplerCreateInfo.minFilter = VK_FILTER_NEAREST;
-    MUST_SUCCESS(vkCreateSampler(device->vk_device,
+    MUST_SUCCESS(vkCreateSampler(device->vkDevice,
         &samplerCreateInfo,
         nullptr,
-        &trace_.resultImmutableSampler));
+        &trace_.result.immutableSampler));
 
     // create descriptor set layout
     std::array<VkDescriptorSetLayoutBinding, 1> resultBindings = {};
@@ -330,31 +332,24 @@ void Render::traceCreateResultImage() {
     resultBindings[0].binding = 0;
     resultBindings[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
     resultBindings[0].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-    VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo = {};
-    descriptorSetLayoutCreateInfo.sType =
-        VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    descriptorSetLayoutCreateInfo.bindingCount = 1;
-    descriptorSetLayoutCreateInfo.pBindings = resultBindings.data();
-    MUST_SUCCESS(vkCreateDescriptorSetLayout(device->vk_device,
-        &descriptorSetLayoutCreateInfo,
-        nullptr,
-        &trace_.resultWriteSetLayout));
+    trace_.result.storageSetLayout =
+        device->createDescriptorSetLayout(resultBindings);
 
     // allocate descriptor set
     VkDescriptorSetAllocateInfo writeSetAllocateInfo = {};
     writeSetAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
     writeSetAllocateInfo.descriptorPool = trace_.descriptorPool;
     writeSetAllocateInfo.descriptorSetCount = 1;
-    writeSetAllocateInfo.pSetLayouts = &trace_.resultWriteSetLayout;
+    writeSetAllocateInfo.pSetLayouts = &trace_.result.storageSetLayout;
     MUST_SUCCESS(vkAllocateDescriptorSets(
-        device->vk_device, &writeSetAllocateInfo, &trace_.resultWriteSet));
+        device->vkDevice, &writeSetAllocateInfo, &trace_.result.storageSet));
 
     // write descriptor
     VkDescriptorImageInfo storageImageDescriptor = {};
     storageImageDescriptor.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-    storageImageDescriptor.imageView = trace_.resultImage.imageView;
+    storageImageDescriptor.imageView = trace_.result.image.vk_image_view;
     storageImageDescriptor.sampler = VK_NULL_HANDLE;
-    traceWriteImageDescriptor(trace_.resultWriteSet,
+    traceWriteImageDescriptor(trace_.result.storageSet,
         0,
         VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
         &storageImageDescriptor);
@@ -366,34 +361,34 @@ void Render::traceCreateResultImage() {
         VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     readSetLayoutBinding.binding = 0;
     readSetLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-    readSetLayoutBinding.pImmutableSamplers = &trace_.resultImmutableSampler;
+    readSetLayoutBinding.pImmutableSamplers = &trace_.result.immutableSampler;
 
     VkDescriptorSetLayoutCreateInfo readSetLayoutCreateInfo = {};
     readSetLayoutCreateInfo.sType =
         VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     readSetLayoutCreateInfo.bindingCount = 1;
     readSetLayoutCreateInfo.pBindings = &readSetLayoutBinding;
-    MUST_SUCCESS(vkCreateDescriptorSetLayout(device->vk_device,
+    MUST_SUCCESS(vkCreateDescriptorSetLayout(device->vkDevice,
         &readSetLayoutCreateInfo,
         nullptr,
-        &trace_.resultReadSetLayout));
+        &trace_.result.sampledSetLayout));
 
     // allocate read set
     VkDescriptorSetAllocateInfo readSetAllocateInfo = {};
     readSetAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
     readSetAllocateInfo.descriptorPool = trace_.descriptorPool;
     readSetAllocateInfo.descriptorSetCount = 1;
-    readSetAllocateInfo.pSetLayouts = &trace_.resultReadSetLayout;
+    readSetAllocateInfo.pSetLayouts = &trace_.result.sampledSetLayout;
     MUST_SUCCESS(vkAllocateDescriptorSets(
-        device->vk_device, &readSetAllocateInfo, &trace_.resultReadSet));
+        device->vkDevice, &readSetAllocateInfo, &trace_.result.sampledSet));
 
     // write to sampler
     VkDescriptorImageInfo sampledImageDescriptor = {};
     sampledImageDescriptor.sampler = VK_NULL_HANDLE;
-    sampledImageDescriptor.imageView = trace_.resultImage.imageView;
+    sampledImageDescriptor.imageView = trace_.result.image.vk_image_view;
     sampledImageDescriptor.imageLayout =
         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    traceWriteImageDescriptor(trace_.resultReadSet,
+    traceWriteImageDescriptor(trace_.result.sampledSet,
         0,
         VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
         &sampledImageDescriptor);
@@ -401,8 +396,8 @@ void Render::traceCreateResultImage() {
 
 void Render::traceCreatePipelineLayout() {
     std::array<VkDescriptorSetLayout, 2> descriptor_set_layouts = {};
-    descriptor_set_layouts[0] = trace_.resultWriteSetLayout;
-    descriptor_set_layouts[1] = scene_buffer_.sceneDescriptorSetLayout;
+    descriptor_set_layouts[0] = trace_.result.storageSetLayout;
+    descriptor_set_layouts[1] = sceneBuffer_.sceneDescriptorSetLayout;
 
     VkPipelineLayoutCreateInfo pipeline_layout_create_info = {};
     pipeline_layout_create_info.sType =
@@ -411,7 +406,7 @@ void Render::traceCreatePipelineLayout() {
         static_cast<uint32_t>(descriptor_set_layouts.size());
     pipeline_layout_create_info.pSetLayouts = descriptor_set_layouts.data();
 
-    MUST_SUCCESS(vkCreatePipelineLayout(device->vk_device,
+    MUST_SUCCESS(vkCreatePipelineLayout(device->vkDevice,
         &pipeline_layout_create_info,
         nullptr,
         &trace_.pipelineLayout));
@@ -431,7 +426,7 @@ void Render::traceCreatePipeline() {
         VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
     computePipelineCreateInfo.layout = trace_.pipelineLayout;
     computePipelineCreateInfo.stage = shaderStageCreateInfo;
-    MUST_SUCCESS(vkCreateComputePipelines(device->vk_device,
+    MUST_SUCCESS(vkCreateComputePipelines(device->vkDevice,
         VK_NULL_HANDLE,
         1,
         &computePipelineCreateInfo,
@@ -439,7 +434,7 @@ void Render::traceCreatePipeline() {
         &trace_.pipeline));
 
     vkDestroyShaderModule(
-        device->vk_device, shaderStageCreateInfo.module, nullptr);
+        device->vkDevice, shaderStageCreateInfo.module, nullptr);
 }
 
 void Render::traceUpdateResultImageLayout(VkCommandBuffer commandBuffer,
@@ -455,7 +450,7 @@ void Render::traceUpdateResultImageLayout(VkCommandBuffer commandBuffer,
     imageMemoryBarrier.dstAccessMask = dstAccessFlags;
     imageMemoryBarrier.oldLayout = oldLayout;
     imageMemoryBarrier.newLayout = newLayout;
-    imageMemoryBarrier.image = trace_.resultImage.image;
+    imageMemoryBarrier.image = trace_.result.image.vk_image;
     imageMemoryBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     imageMemoryBarrier.subresourceRange.baseMipLevel = 0;
     imageMemoryBarrier.subresourceRange.levelCount = 1;
@@ -487,7 +482,7 @@ void Render::traceWriteImageDescriptor(VkDescriptorSet set,
     writeDescriptorSet.descriptorCount = 1;
     writeDescriptorSet.pImageInfo = imageInfo;
     vkUpdateDescriptorSets(
-        device->vk_device, 1, &writeDescriptorSet, 0, nullptr);
+        device->vkDevice, 1, &writeDescriptorSet, 0, nullptr);
 }
 
 void Render::traceDispatch(VkCommandBuffer commandBuffer) {
@@ -501,8 +496,8 @@ void Render::traceDispatch(VkCommandBuffer commandBuffer) {
     // bind resources
     // bind compute pipeline
     std::array<VkDescriptorSet, 2> sets = {};
-    sets[0] = trace_.resultWriteSet;
-    sets[1] = scene_buffer_.sceneDescriptorSet;
+    sets[0] = trace_.result.storageSet;
+    sets[1] = sceneBuffer_.descriptorSet;
     vkCmdBindDescriptorSets(commandBuffer,
         VK_PIPELINE_BIND_POINT_COMPUTE,
         trace_.pipelineLayout,
@@ -514,8 +509,8 @@ void Render::traceDispatch(VkCommandBuffer commandBuffer) {
     vkCmdBindPipeline(
         commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, trace_.pipeline);
     vkCmdDispatch(commandBuffer,
-        swap_chain->image_extent.width / 2,
-        swap_chain->image_extent.height / 2,
+        swapChain_->imageExtent.width / 2,
+        swapChain_->imageExtent.height / 2,
         1);
 
     // update resultImage layout
@@ -536,21 +531,21 @@ void Render::displayInitialize() {
 }
 
 void Render::displayFinalize() {
-    // timesUniformBuffer
+    // times uniform buffer
     vkDestroyDescriptorPool(
-        device->vk_device, display_.timesUniformBuffer.descriptorPool, nullptr);
+        device->vkDevice, display_.times.descriptorPool, nullptr);
+    vkDestroyDescriptorSetLayout(
+        device->vkDevice, display_.times.descriptorSetLayout, nullptr);
 
     // pipeline
-    vkDestroyDescriptorPool(
-        device->vk_device, display_.descriptorPool, nullptr);
-    vkDestroyPipeline(device->vk_device, display_.pipeline, nullptr);
-    vkDestroyPipelineLayout(
-        device->vk_device, display_.pipelineLayout, nullptr);
+    vkDestroyDescriptorPool(device->vkDevice, display_.descriptorPool, nullptr);
+    vkDestroyPipeline(device->vkDevice, display_.pipeline, nullptr);
+    vkDestroyPipelineLayout(device->vkDevice, display_.pipelineLayout, nullptr);
     for (auto &f : display_.framebuffers) {
-        vkDestroyFramebuffer(device->vk_device, f, nullptr);
+        vkDestroyFramebuffer(device->vkDevice, f, nullptr);
     }
     if (display_.renderPass) {
-        vkDestroyRenderPass(device->vk_device, display_.renderPass, nullptr);
+        vkDestroyRenderPass(device->vkDevice, display_.renderPass, nullptr);
     }
 }
 
@@ -565,7 +560,7 @@ void Render::displayCreateDescriptorPool() {
     poolCreateInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
     poolCreateInfo.pPoolSizes = poolSizes.data();
     (vkCreateDescriptorPool(
-        device->vk_device, &poolCreateInfo, nullptr, &display_.descriptorPool));
+        device->vkDevice, &poolCreateInfo, nullptr, &display_.descriptorPool));
 }
 
 void Render::displayCreateTimesUniformBuffer() {
@@ -573,15 +568,33 @@ void Render::displayCreateTimesUniformBuffer() {
     std::array<VkDescriptorPoolSize, 1> poolSizes = {};
     poolSizes[0].descriptorCount = 1;
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    display_.timesUniformBuffer.descriptorPool =
-        device->createDescriptorPool(poolSizes, 1);
+    display_.times.descriptorPool = device->createDescriptorPool(poolSizes, 1);
+
+    // create descriptor set layout
+    std::array<VkDescriptorSetLayoutBinding, 1>
+        descriptorSetLayoutBindings = {};
+    descriptorSetLayoutBindings[0].binding = 0;
+    descriptorSetLayoutBindings[0].descriptorCount = 1;
+    descriptorSetLayoutBindings[0].descriptorType =
+        VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    descriptorSetLayoutBindings[0].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    display_.times.descriptorSetLayout =
+        device->createDescriptorSetLayout(descriptorSetLayoutBindings);
+
+    // allocate descriptor set
+    display_.times.descriptorSet = device->allocateSingleDescriptorSet(
+        display_.times.descriptorPool, display_.times.descriptorSetLayout);
+
+    // create buffer
+
+    // write descriptor set
 }
 
 void Render::displayCreateRenderPass() {
     std::array<VkAttachmentDescription, 1> attachmentDescriptions = {};
     // color buffer
     attachmentDescriptions[0].samples = VK_SAMPLE_COUNT_1_BIT;
-    attachmentDescriptions[0].format = swap_chain->image_format;
+    attachmentDescriptions[0].format = swapChain_->image_format;
     attachmentDescriptions[0].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     attachmentDescriptions[0].finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
     attachmentDescriptions[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
@@ -625,24 +638,24 @@ void Render::displayCreateRenderPass() {
     renderPassCreateInfo.pSubpasses = &subpassDescription;
     renderPassCreateInfo.dependencyCount = 2;
     renderPassCreateInfo.pDependencies = subpassDependencies.data();
-    MUST_SUCCESS(vkCreateRenderPass(device->vk_device,
+    MUST_SUCCESS(vkCreateRenderPass(device->vkDevice,
         &renderPassCreateInfo,
         nullptr,
         &display_.renderPass));
 }
 
 void Render::displayCreateFramebuffers() {
-    display_.framebuffers.resize(swap_chain->vk_images.size());
+    display_.framebuffers.resize(swapChain_->vk_images.size());
     for (size_t i = 0; i < display_.framebuffers.size(); ++i) {
         VkFramebufferCreateInfo framebufferCreateInfo = {};
         framebufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
         framebufferCreateInfo.renderPass = display_.renderPass;
         framebufferCreateInfo.attachmentCount = 1;
-        framebufferCreateInfo.pAttachments = &swap_chain->vk_image_views[i];
-        framebufferCreateInfo.width = swap_chain->image_extent.width;
-        framebufferCreateInfo.height = swap_chain->image_extent.height;
+        framebufferCreateInfo.pAttachments = &swapChain_->vk_image_views[i];
+        framebufferCreateInfo.width = swapChain_->imageExtent.width;
+        framebufferCreateInfo.height = swapChain_->imageExtent.height;
         framebufferCreateInfo.layers = 1;
-        MUST_SUCCESS(vkCreateFramebuffer(device->vk_device,
+        MUST_SUCCESS(vkCreateFramebuffer(device->vkDevice,
             &framebufferCreateInfo,
             nullptr,
             &display_.framebuffers[i]));
@@ -651,7 +664,7 @@ void Render::displayCreateFramebuffers() {
 
 void Render::displayCreatePipelineLayout() {
     std::array<VkDescriptorSetLayout, 1> setLayouts = {};
-    setLayouts[0] = trace_.resultReadSetLayout;
+    setLayouts[0] = trace_.result.sampledSetLayout;
 
     VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {};
     pipelineLayoutCreateInfo.sType =
@@ -660,7 +673,7 @@ void Render::displayCreatePipelineLayout() {
         static_cast<uint32_t>(setLayouts.size());
     pipelineLayoutCreateInfo.pSetLayouts = setLayouts.data();
 
-    MUST_SUCCESS(vkCreatePipelineLayout(device->vk_device,
+    MUST_SUCCESS(vkCreatePipelineLayout(device->vkDevice,
         &pipelineLayoutCreateInfo,
         nullptr,
         &display_.pipelineLayout));
@@ -752,7 +765,7 @@ void Render::displayCreatePipeline() {
     graphicsPipelineCreateInfo.renderPass = display_.renderPass;
     graphicsPipelineCreateInfo.layout = display_.pipelineLayout;
 
-    MUST_SUCCESS(vkCreateGraphicsPipelines(device->vk_device,
+    MUST_SUCCESS(vkCreateGraphicsPipelines(device->vkDevice,
         VK_NULL_HANDLE,
         1,
         &graphicsPipelineCreateInfo,
@@ -760,7 +773,7 @@ void Render::displayCreatePipeline() {
         &display_.pipeline));
 
     for (auto &s : shaderStages) {
-        vkDestroyShaderModule(device->vk_device, s.first, nullptr);
+        vkDestroyShaderModule(device->vkDevice, s.first, nullptr);
     }
 }
 
@@ -778,7 +791,7 @@ void Render::displayDraw(VkCommandBuffer commandBuffer, uint32_t imageIndex) {
     renderPassBeginInfo.clearValueCount = 1;
     renderPassBeginInfo.pClearValues = clear_values.data();
     renderPassBeginInfo.renderArea.offset = {};
-    renderPassBeginInfo.renderArea.extent = swap_chain->image_extent;
+    renderPassBeginInfo.renderArea.extent = swapChain_->imageExtent;
     vkCmdBeginRenderPass(
         commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
@@ -787,8 +800,8 @@ void Render::displayDraw(VkCommandBuffer commandBuffer, uint32_t imageIndex) {
     viewport.y = 0;
     viewport.minDepth = 0.0f;
     viewport.maxDepth = 1.0f;
-    viewport.width = float(swap_chain->image_extent.width);
-    viewport.height = float(swap_chain->image_extent.height);
+    viewport.width = float(swapChain_->imageExtent.width);
+    viewport.height = float(swapChain_->imageExtent.height);
     vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
     vkCmdSetScissor(commandBuffer, 0, 1, &renderPassBeginInfo.renderArea);
 
@@ -797,7 +810,7 @@ void Render::displayDraw(VkCommandBuffer commandBuffer, uint32_t imageIndex) {
         display_.pipelineLayout,
         0,
         1,
-        &trace_.resultReadSet,
+        &trace_.result.sampledSet,
         0,
         nullptr);
     vkCmdBindPipeline(
@@ -808,17 +821,17 @@ void Render::displayDraw(VkCommandBuffer commandBuffer, uint32_t imageIndex) {
 }
 
 void Render::buildCommandBuffer() {
-    for (size_t i = 0; i < command_buffers_.size(); ++i) {
+    for (size_t i = 0; i < commandBuffers_.size(); ++i) {
         VkCommandBufferBeginInfo beginInfo = {};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-        MUST_SUCCESS(vkBeginCommandBuffer(command_buffers_[i], &beginInfo));
+        MUST_SUCCESS(vkBeginCommandBuffer(commandBuffers_[i], &beginInfo));
 
-        traceDispatch(command_buffers_[i]);
-        displayDraw(command_buffers_[i], uint32_t(i));
+        traceDispatch(commandBuffers_[i]);
+        displayDraw(commandBuffers_[i], uint32_t(i));
 
         VkImageMemoryBarrier barrier = {};
         barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-        barrier.image = swap_chain->vk_images[i];
+        barrier.image = swapChain_->vk_images[i];
         barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
         barrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
         barrier.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
@@ -830,7 +843,7 @@ void Render::buildCommandBuffer() {
         barrier.subresourceRange.layerCount = 1;
         barrier.subresourceRange.baseMipLevel = 0;
         barrier.subresourceRange.levelCount = 1;
-        vkCmdPipelineBarrier(command_buffers_[i],
+        vkCmdPipelineBarrier(commandBuffers_[i],
             VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
             VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
             0,
@@ -841,6 +854,6 @@ void Render::buildCommandBuffer() {
             1,
             &barrier);
 
-        MUST_SUCCESS(vkEndCommandBuffer(command_buffers_[i]));
+        MUST_SUCCESS(vkEndCommandBuffer(commandBuffers_[i]));
     }
 }

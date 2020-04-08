@@ -36,20 +36,20 @@ void Device::initialize(GLFWwindow *window) {
     VkFenceCreateInfo fenceCreateInfo = {};
     fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
     MUST_SUCCESS(
-        vkCreateFence(vk_device, &fenceCreateInfo, nullptr, &transient_fence));
+        vkCreateFence(vkDevice, &fenceCreateInfo, nullptr, &transient_fence));
 }
 
 void Device::finalize() {
     for (auto &p : transient_command_pools) {
-        vkDestroyCommandPool(vk_device, p.second, nullptr);
+        vkDestroyCommandPool(vkDevice, p.second, nullptr);
     }
 
     if (transient_fence) {
-        vkDestroyFence(vk_device, transient_fence, nullptr);
+        vkDestroyFence(vkDevice, transient_fence, nullptr);
     }
 
-    if (vk_device) {
-        vkDestroyDevice(vk_device, nullptr);
+    if (vkDevice) {
+        vkDestroyDevice(vkDevice, nullptr);
     }
     if (vk_surface) {
         vkDestroySurfaceKHR(vk_instance, vk_surface, nullptr);
@@ -91,11 +91,11 @@ void Device::createBuffer(VkDeviceSize size,
     bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     bufferCreateInfo.usage = usage;
     bufferCreateInfo.size = size;
-    vkCreateBuffer(vk_device, &bufferCreateInfo, nullptr, &buffer->vk_buffer);
+    vkCreateBuffer(vkDevice, &bufferCreateInfo, nullptr, &buffer->vk_buffer);
 
     VkMemoryRequirements memoryRequirements;
     vkGetBufferMemoryRequirements(
-        vk_device, buffer->vk_buffer, &memoryRequirements);
+        vkDevice, buffer->vk_buffer, &memoryRequirements);
 
     VkMemoryAllocateInfo memoryAllocateInfo = {};
     memoryAllocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
@@ -103,10 +103,10 @@ void Device::createBuffer(VkDeviceSize size,
     memoryAllocateInfo.memoryTypeIndex =
         getMemoryType(memoryRequirements.memoryTypeBits, memoryFlags);
     MUST_SUCCESS(vkAllocateMemory(
-        vk_device, &memoryAllocateInfo, nullptr, &buffer->vk_deviceMemory));
+        vkDevice, &memoryAllocateInfo, nullptr, &buffer->vk_deviceMemory));
 
     MUST_SUCCESS(vkBindBufferMemory(
-        vk_device, buffer->vk_buffer, buffer->vk_deviceMemory, 0));
+        vkDevice, buffer->vk_buffer, buffer->vk_deviceMemory, 0));
 }
 
 void Device::destroyBuffer(Buffer *buffer) {
@@ -115,10 +115,10 @@ void Device::destroyBuffer(Buffer *buffer) {
     }
 
     if (buffer->vk_buffer) {
-        vkDestroyBuffer(vk_device, buffer->vk_buffer, nullptr);
+        vkDestroyBuffer(vkDevice, buffer->vk_buffer, nullptr);
     }
     if (buffer->vk_deviceMemory) {
-        vkFreeMemory(vk_device, buffer->vk_deviceMemory, nullptr);
+        vkFreeMemory(vkDevice, buffer->vk_deviceMemory, nullptr);
     }
 }
 
@@ -194,9 +194,9 @@ void Device::updateBuffer(Buffer *buffer,
         // copy data
         void *mapped = nullptr;
         MUST_SUCCESS(vkMapMemory(
-            vk_device, buffer->vk_deviceMemory, offset, size, 0, &mapped));
+            vkDevice, buffer->vk_deviceMemory, offset, size, 0, &mapped));
         memcpy(mapped, data, size);
-        vkUnmapMemory(vk_device, buffer->vk_deviceMemory);
+        vkUnmapMemory(vkDevice, buffer->vk_deviceMemory);
     }
 
     // update barrier
@@ -217,44 +217,45 @@ void Device::createImage2D(VkFormat format,
     VkMemoryPropertyFlags memoryFlags,
     VkImageAspectFlags aspectFlags,
     Image2D *texture) const {
-    VkImageCreateInfo imageCreateInfo = {};
-    imageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-    imageCreateInfo.extent = { extent.width, extent.height, 1 };
-    imageCreateInfo.format = format;
-    imageCreateInfo.usage = usageFlags;
-    imageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
-    imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
-    imageCreateInfo.arrayLayers = 1;
-    imageCreateInfo.mipLevels = 1;
-    imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-    imageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    imageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-    MUST_SUCCESS(
-        vkCreateImage(vk_device, &imageCreateInfo, nullptr, &texture->image));
+    VkImageCreateInfo image_create_info = {};
+    image_create_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    image_create_info.extent = { extent.width, extent.height, 1 };
+    image_create_info.format = format;
+    image_create_info.usage = usageFlags;
+    image_create_info.imageType = VK_IMAGE_TYPE_2D;
+    image_create_info.initialLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
+    image_create_info.arrayLayers = 1;
+    image_create_info.mipLevels = 1;
+    image_create_info.samples = VK_SAMPLE_COUNT_1_BIT;
+    image_create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    image_create_info.tiling = VK_IMAGE_TILING_OPTIMAL;
+    MUST_SUCCESS(vkCreateImage(
+        vkDevice, &image_create_info, nullptr, &texture->vk_image));
 
-    VkMemoryRequirements memReq = {};
-    vkGetImageMemoryRequirements(vk_device, texture->image, &memReq);
+    VkMemoryRequirements image_memory_requirements = {};
+    vkGetImageMemoryRequirements(
+        vkDevice, texture->vk_image, &image_memory_requirements);
 
-    VkMemoryAllocateInfo memoryAllocateInfo = {};
-    memoryAllocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    memoryAllocateInfo.memoryTypeIndex =
-        getMemoryType(memReq.memoryTypeBits, memoryFlags);
-    memoryAllocateInfo.allocationSize = memReq.size;
+    VkMemoryAllocateInfo memory_allocate_info = {};
+    memory_allocate_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    memory_allocate_info.memoryTypeIndex =
+        getMemoryType(image_memory_requirements.memoryTypeBits, memoryFlags);
+    memory_allocate_info.allocationSize = image_memory_requirements.size;
     MUST_SUCCESS(vkAllocateMemory(
-        vk_device, &memoryAllocateInfo, nullptr, &texture->deviceMemory));
-    MUST_SUCCESS(
-        vkBindImageMemory(vk_device, texture->image, texture->deviceMemory, 0));
+        vkDevice, &memory_allocate_info, nullptr, &texture->vk_device_memory));
+    MUST_SUCCESS(vkBindImageMemory(
+        vkDevice, texture->vk_image, texture->vk_device_memory, 0));
 
-    VkImageViewCreateInfo viewCreateInfo = {};
-    viewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    viewCreateInfo.format = format;
-    viewCreateInfo.image = texture->image;
-    viewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-    viewCreateInfo.components = identityComponentMapping();
-    viewCreateInfo.subresourceRange =
+    VkImageViewCreateInfo image_view_create_info = {};
+    image_view_create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    image_view_create_info.format = format;
+    image_view_create_info.image = texture->vk_image;
+    image_view_create_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    image_view_create_info.components = identityComponentMapping();
+    image_view_create_info.subresourceRange =
         imageSubresourceRange(aspectFlags, 0, 1, 0, 1);
     MUST_SUCCESS(vkCreateImageView(
-        vk_device, &viewCreateInfo, nullptr, &texture->imageView));
+        vkDevice, &image_view_create_info, nullptr, &texture->vk_image_view));
 }
 
 void Device::destroyImage2D(Image2D *t) const {
@@ -262,14 +263,14 @@ void Device::destroyImage2D(Image2D *t) const {
         return;
     }
 
-    if (t->image) {
-        vkDestroyImage(vk_device, t->image, nullptr);
+    if (t->vk_image) {
+        vkDestroyImage(vkDevice, t->vk_image, nullptr);
     }
-    if (t->deviceMemory) {
-        vkFreeMemory(vk_device, t->deviceMemory, nullptr);
+    if (t->vk_device_memory) {
+        vkFreeMemory(vkDevice, t->vk_device_memory, nullptr);
     }
-    if (t->imageView) {
-        vkDestroyImageView(vk_device, t->imageView, nullptr);
+    if (t->vk_image_view) {
+        vkDestroyImageView(vkDevice, t->vk_image_view, nullptr);
     }
     *t = {};
 }
@@ -281,7 +282,7 @@ VkCommandBuffer Device::beginTransientCommandBuffer(uint32_t queueFamilyIndex) {
             VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
         commandPoolCreateInfo.queueFamilyIndex = queueFamilyIndex;
         commandPoolCreateInfo.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
-        MUST_SUCCESS(vkCreateCommandPool(vk_device,
+        MUST_SUCCESS(vkCreateCommandPool(vkDevice,
             &commandPoolCreateInfo,
             nullptr,
             &transient_command_pools[queueFamilyIndex]));
@@ -296,7 +297,7 @@ VkCommandBuffer Device::beginTransientCommandBuffer(uint32_t queueFamilyIndex) {
     commandBufferAllocateInfo.commandPool =
         transient_command_pools[queueFamilyIndex];
     MUST_SUCCESS(vkAllocateCommandBuffers(
-        vk_device, &commandBufferAllocateInfo, &commandBuffer));
+        vkDevice, &commandBufferAllocateInfo, &commandBuffer));
 
     // record command buffer's queue family index
     transient_command_buffers[commandBuffer] = queueFamilyIndex;
@@ -314,17 +315,33 @@ void Device::flushTransientCommandBuffer(VkCommandBuffer commandBuffer) {
     auto queueFamilyIndex = transient_command_buffers[commandBuffer];
 
     VkQueue q;
-    vkGetDeviceQueue(vk_device, queueFamilyIndex, 0, &q);
+    vkGetDeviceQueue(vkDevice, queueFamilyIndex, 0, &q);
 
     VkSubmitInfo submitInfo = {};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     submitInfo.commandBufferCount = 1;
     submitInfo.pCommandBuffers = &commandBuffer;
     MUST_SUCCESS(vkQueueSubmit(q, 1, &submitInfo, transient_fence));
-    MUST_SUCCESS(vkWaitForFences(vk_device, 1, &transient_fence, VK_FALSE, UINT64_MAX));
-    MUST_SUCCESS(vkResetFences(vk_device, 1, &transient_fence));
+    MUST_SUCCESS(
+        vkWaitForFences(vkDevice, 1, &transient_fence, VK_FALSE, UINT64_MAX));
+    MUST_SUCCESS(vkResetFences(vkDevice, 1, &transient_fence));
 
     MUST_SUCCESS(vkQueueWaitIdle(q));
+}
+
+VkDescriptorSet Device::allocateSingleDescriptorSet(VkDescriptorPool pool,
+    VkDescriptorSetLayout layout) const {
+    VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
+    VkDescriptorSetAllocateInfo descriptorSetAllocateInfo = {};
+    descriptorSetAllocateInfo.sType =
+        VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    descriptorSetAllocateInfo.descriptorPool = pool;
+    descriptorSetAllocateInfo.descriptorSetCount = 1;
+    descriptorSetAllocateInfo.pSetLayouts = &layout;
+    MUST_SUCCESS(vkAllocateDescriptorSets(
+        vkDevice, &descriptorSetAllocateInfo, &descriptorSet));
+
+    return descriptorSet;
 }
 
 VkShaderModule Device::loadShaderModule(const char *filename) const {
@@ -340,7 +357,7 @@ VkShaderModule Device::loadShaderModule(const char *filename) const {
     shaderModuleCreateInfo.pCode =
         reinterpret_cast<const uint32_t *>(blob.data());
     MUST_SUCCESS(vkCreateShaderModule(
-        vk_device, &shaderModuleCreateInfo, nullptr, &shaderModule));
+        vkDevice, &shaderModuleCreateInfo, nullptr, &shaderModule));
 
     return shaderModule;
 }
@@ -453,7 +470,7 @@ void Device::createLogicDevice() {
     createInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
     createInfo.ppEnabledExtensionNames = extensions.data();
     MUST_SUCCESS(
-        vkCreateDevice(vk_physical_device, &createInfo, nullptr, &vk_device));
+        vkCreateDevice(vk_physical_device, &createInfo, nullptr, &vkDevice));
 }
 
 void SwapChain::initialize(Device *device_) {
@@ -463,7 +480,7 @@ void SwapChain::initialize(Device *device_) {
     fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
     fenceCreateInfo.flags = 0;
     MUST_SUCCESS(vkCreateFence(
-        device->vk_device, &fenceCreateInfo, nullptr, &acquire_fence));
+        device->vkDevice, &fenceCreateInfo, nullptr, &acquire_fence));
 
     createSwapChain();
 }
@@ -472,11 +489,11 @@ void SwapChain::finalize() {
     destroySwapChain();
 
     if (acquire_fence) {
-        vkDestroyFence(device->vk_device, acquire_fence, nullptr);
+        vkDestroyFence(device->vkDevice, acquire_fence, nullptr);
     }
 
     if (device && vk_swapchain) {
-        vkDestroySwapchainKHR(device->vk_device, vk_swapchain, nullptr);
+        vkDestroySwapchainKHR(device->vkDevice, vk_swapchain, nullptr);
     }
 }
 
@@ -486,7 +503,7 @@ void SwapChain::resize() {
 }
 
 void SwapChain::acquire() {
-    MUST_SUCCESS(vkAcquireNextImageKHR(device->vk_device,
+    MUST_SUCCESS(vkAcquireNextImageKHR(device->vkDevice,
         vk_swapchain,
         UINT64_MAX,
         VK_NULL_HANDLE,
@@ -494,8 +511,8 @@ void SwapChain::acquire() {
         &current_image_index));
 
     MUST_SUCCESS(vkWaitForFences(
-        device->vk_device, 1, &acquire_fence, VK_FALSE, UINT64_MAX));
-    MUST_SUCCESS(vkResetFences(device->vk_device, 1, &acquire_fence));
+        device->vkDevice, 1, &acquire_fence, VK_FALSE, UINT64_MAX));
+    MUST_SUCCESS(vkResetFences(device->vkDevice, 1, &acquire_fence));
 }
 
 void SwapChain::present() {
@@ -506,7 +523,7 @@ void SwapChain::present() {
     presentInfo.pImageIndices = &current_image_index;
 
     VkQueue q = VK_NULL_HANDLE;
-    vkGetDeviceQueue(device->vk_device, device->present_queue_index, 0, &q);
+    vkGetDeviceQueue(device->vkDevice, device->present_queue_index, 0, &q);
 
     MUST_SUCCESS(vkQueuePresentKHR(q, &presentInfo));
 }
@@ -518,7 +535,7 @@ void SwapChain::createSwapChain() {
     MUST_SUCCESS(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
         device->vk_physical_device, device->vk_surface, &caps));
 
-    image_extent = caps.currentExtent;
+    imageExtent = caps.currentExtent;
 
     VkSwapchainCreateInfoKHR createInfo = {};
     createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
@@ -555,7 +572,7 @@ void SwapChain::createSwapChain() {
     createInfo.presentMode = vk_present_mode;
 
     MUST_SUCCESS(vkCreateSwapchainKHR(
-        device->vk_device, &createInfo, nullptr, &vk_swapchain));
+        device->vkDevice, &createInfo, nullptr, &vk_swapchain));
 
     retrieveImages();
     createImageViews();
@@ -563,12 +580,12 @@ void SwapChain::createSwapChain() {
 
 void SwapChain::destroySwapChain() {
     for (auto &view : vk_image_views) {
-        vkDestroyImageView(device->vk_device, view, nullptr);
+        vkDestroyImageView(device->vkDevice, view, nullptr);
     }
     vk_image_views.clear();
 
     if (vk_swapchain) {
-        vkDestroySwapchainKHR(device->vk_device, vk_swapchain, nullptr);
+        vkDestroySwapchainKHR(device->vkDevice, vk_swapchain, nullptr);
         vk_swapchain = VK_NULL_HANDLE;
     }
 }
@@ -609,12 +626,12 @@ void SwapChain::selectImageFormat() {
 
 void SwapChain::retrieveImages() {
     uint32_t cnt = 0;
-    MUST_SUCCESS(vkGetSwapchainImagesKHR(
-        device->vk_device, vk_swapchain, &cnt, nullptr));
+    MUST_SUCCESS(
+        vkGetSwapchainImagesKHR(device->vkDevice, vk_swapchain, &cnt, nullptr));
 
     vk_images.resize(cnt);
     MUST_SUCCESS(vkGetSwapchainImagesKHR(
-        device->vk_device, vk_swapchain, &cnt, vk_images.data()));
+        device->vkDevice, vk_swapchain, &cnt, vk_images.data()));
 }
 
 void SwapChain::createImageViews() {
@@ -629,7 +646,7 @@ void SwapChain::createImageViews() {
         imageViewCreateInfo.subresourceRange =
             imageSubresourceRange(VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1);
 
-        MUST_SUCCESS(vkCreateImageView(device->vk_device,
+        MUST_SUCCESS(vkCreateImageView(device->vkDevice,
             &imageViewCreateInfo,
             nullptr,
             &vk_image_views[i]));

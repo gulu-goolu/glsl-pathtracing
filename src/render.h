@@ -21,7 +21,7 @@ public:
         const Camera &_camera);
     void finalize();
 
-    void updateCamera(const Camera &camera);
+    void reset(Scene *_scene, const Camera &camera);
 
     // record render commands
     void drawFrame(uint32_t image_index);
@@ -34,7 +34,7 @@ private:
         Buffer lightsReadonlyBuffer;
 
         VkDescriptorSetLayout sceneDescriptorSetLayout;
-        VkDescriptorSet sceneDescriptorSet;
+        VkDescriptorSet descriptorSet;
         VkDescriptorPool sceneDescriptorSetPool;
     };
 
@@ -49,19 +49,28 @@ private:
         size_t data_size,
         const void *data) const;
 
+    struct ResultImage {
+        Image2D image;
+        VkSampler immutableSampler = VK_NULL_HANDLE;
+        VkDescriptorSetLayout storageSetLayout = VK_NULL_HANDLE;
+        VkDescriptorSet storageSet = VK_NULL_HANDLE;
+        VkDescriptorSetLayout sampledSetLayout = VK_NULL_HANDLE;
+        VkDescriptorSet sampledSet = VK_NULL_HANDLE;
+    };
+
+    struct CameraUBO {
+        Buffer buffer;
+
+        VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
+        VkDescriptorSetLayout descriptorSetLayout = VK_NULL_HANDLE;
+        VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
+    };
+
     struct Trace {
         VkDescriptorPool descriptorPool;
 
-        Image2D resultImage;
-        VkSampler resultImmutableSampler;
-        VkDescriptorSetLayout resultWriteSetLayout;
-        VkDescriptorSet resultWriteSet;
-        VkDescriptorSetLayout resultReadSetLayout;
-        VkDescriptorSet resultReadSet;
-
-        Buffer cameraUniformBuffer;
-        VkDescriptorSetLayout cameraDescriptorSetLayout;
-        VkDescriptorSet cameraDescriptorSet;
+        ResultImage result;
+        CameraUBO camera;
 
         VkPipelineLayout pipelineLayout;
         VkPipeline pipeline;
@@ -71,6 +80,7 @@ private:
     void traceFinalize();
     void traceCreateDescriptorPool();
     void traceCreateResultImage();
+    void traceCreateCameraUniformBuffer();
     void traceCreatePipelineLayout();
     void traceCreatePipeline();
     void traceUpdateResultImageLayout(VkCommandBuffer commandBuffer,
@@ -87,14 +97,14 @@ private:
     struct TimesUniformBuffer {
         Buffer buffer;
         VkDescriptorPool descriptorPool;
-        VkDescriptorSetLayout setLayout;
-        VkDescriptorSet set;
+        VkDescriptorSetLayout descriptorSetLayout;
+        VkDescriptorSet descriptorSet;
     };
 
     struct Display {
         VkDescriptorPool descriptorPool;
 
-        TimesUniformBuffer timesUniformBuffer;
+        TimesUniformBuffer times;
 
         VkRenderPass renderPass = VK_NULL_HANDLE;
         std::vector<VkFramebuffer> framebuffers;
@@ -116,16 +126,16 @@ private:
     void buildCommandBuffer();
 
     Device *device = nullptr;
-    SwapChain *swap_chain = nullptr;
+    SwapChain *swapChain_ = nullptr;
     Scene *scene = nullptr;
-    VkFence submit_fence_ = VK_NULL_HANDLE;
 
-    SceneBuffer scene_buffer_;
+    SceneBuffer sceneBuffer_;
     Trace trace_;
     Display display_;
 
-    VkCommandPool command_pool_ = VK_NULL_HANDLE;
-    std::vector<VkCommandBuffer> command_buffers_;
+    VkCommandPool commandPool_ = VK_NULL_HANDLE;
+    std::vector<VkCommandBuffer> commandBuffers_;
+    VkFence submitFence_ = VK_NULL_HANDLE;
 };
 
 #endif // GLSL_RAYTRACING_RENDER_H

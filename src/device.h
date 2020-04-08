@@ -29,13 +29,9 @@ struct Buffer {
 };
 
 struct Image2D {
-    VkImage image;
-    VkDeviceMemory deviceMemory;
-    VkImageView imageView;
-};
-
-struct CommandBuffer {
-    VkCommandBuffer cmd;
+    VkImage vk_image = VK_NULL_HANDLE;
+    VkDeviceMemory vk_device_memory = VK_NULL_HANDLE;
+    VkImageView vk_image_view = VK_NULL_HANDLE;
 };
 
 class Device {
@@ -89,10 +85,32 @@ public:
         descriptorPoolCreateInfo.pPoolSizes = sizes.data();
         descriptorPoolCreateInfo.maxSets = maxSets;
         MUST_SUCCESS(vkCreateDescriptorPool(
-            vk_device, &descriptorPoolCreateInfo, nullptr, &descriptorPool));
+            vkDevice, &descriptorPoolCreateInfo, nullptr, &descriptorPool));
 
         return descriptorPool;
     }
+
+    template<size_t BindingCount>
+    VkDescriptorSetLayout createDescriptorSetLayout(
+        const std::array<VkDescriptorSetLayoutBinding, BindingCount> &bindings)
+        const {
+        VkDescriptorSetLayout descriptorSetLayout = VK_NULL_HANDLE;
+        VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo = {};
+        descriptorSetLayoutCreateInfo.sType =
+            VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+        descriptorSetLayoutCreateInfo.bindingCount =
+            static_cast<uint32_t>(BindingCount);
+        descriptorSetLayoutCreateInfo.pBindings = bindings.data();
+        MUST_SUCCESS(vkCreateDescriptorSetLayout(vkDevice,
+            &descriptorSetLayoutCreateInfo,
+            nullptr,
+            &descriptorSetLayout));
+
+        return descriptorSetLayout;
+    }
+
+    VkDescriptorSet allocateSingleDescriptorSet(VkDescriptorPool pool,
+        VkDescriptorSetLayout layout) const;
 
     VkShaderModule loadShaderModule(const char *filename) const;
 
@@ -104,7 +122,7 @@ public:
     uint32_t compute_queue_index = UINT32_MAX;
     uint32_t present_queue_index = UINT32_MAX;
 
-    VkDevice vk_device = VK_NULL_HANDLE;
+    VkDevice vkDevice = VK_NULL_HANDLE;
 
     VkFence transient_fence = VK_NULL_HANDLE;
     std::unordered_map<uint32_t, VkCommandPool> transient_command_pools;
@@ -135,7 +153,7 @@ public:
     uint32_t current_image_index = 0;
     VkFormat image_format = VK_FORMAT_UNDEFINED;
     VkColorSpaceKHR image_color_space = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
-    VkExtent2D image_extent = { 0, 0 };
+    VkExtent2D imageExtent = { 0, 0 };
 
     std::vector<VkImage> vk_images;
     std::vector<VkImageView> vk_image_views;
