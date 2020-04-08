@@ -10,9 +10,19 @@
 #include "scene.h"
 
 struct CameraData {
-    glm::vec3 from;
-    glm::vec3 to;
-    glm::vec3 up;
+    glm::vec4 from;
+    glm::vec4 to;
+    glm::vec4 up;
+    float fov_angle;
+    float aspect;
+
+    // for align
+    float reserved1;
+    float reserved2;
+
+    glm::vec4 top_left_corner;
+    glm::vec4 vertical;
+    glm::vec4 horizontal;
 };
 
 class Render {
@@ -54,9 +64,9 @@ private:
     struct ResultImage {
         Image2D image;
         VkSampler immutableSampler = VK_NULL_HANDLE;
-        VkDescriptorSetLayout storageSetLayout = VK_NULL_HANDLE;
+        DescriptorSetLayout storageSetLayout;
         VkDescriptorSet storageSet = VK_NULL_HANDLE;
-        VkDescriptorSetLayout sampledSetLayout = VK_NULL_HANDLE;
+        DescriptorSetLayout sampledSetLayout;
         VkDescriptorSet sampledSet = VK_NULL_HANDLE;
     };
 
@@ -65,8 +75,7 @@ private:
 
         CameraData data;
 
-        VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
-        VkDescriptorSetLayout descriptorSetLayout = VK_NULL_HANDLE;
+        DescriptorSetLayout descriptorSetLayout;
         VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
     };
 
@@ -91,17 +100,23 @@ private:
         VkAccessFlags srcAccessFlags,
         VkAccessFlags dstAccessFlags,
         VkImageLayout oldLayout,
-        VkImageLayout newLayout);
+        VkImageLayout newLayout) const;
     void traceWriteImageDescriptor(VkDescriptorSet set,
         uint32_t dstBinding,
         VkDescriptorType descriptorType,
         const VkDescriptorImageInfo *imageInfo);
-    void traceDispatch(VkCommandBuffer commandBuffer);
+    void traceDispatch(VkCommandBuffer commandBuffer) const;
+
+    struct TimesData {
+        uint32_t times;
+        uint32_t reserved1;
+        uint32_t reserved2;
+        uint32_t reserved3;
+    };
 
     struct TimesUniformBuffer {
         Buffer buffer;
-        VkDescriptorPool descriptorPool;
-        VkDescriptorSetLayout descriptorSetLayout;
+        DescriptorSetLayout descriptorSetLayout;
         VkDescriptorSet descriptorSet;
     };
 

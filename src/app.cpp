@@ -39,7 +39,7 @@ void App::run() {
         glfwPollEvents();
 
         swap_chain_.acquire();
-        render_.drawFrame(swap_chain_.current_image_index);
+        render_.drawFrame(swap_chain_.currentImageIndex);
         swap_chain_.present();
     }
 }

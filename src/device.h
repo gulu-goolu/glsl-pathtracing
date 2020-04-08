@@ -112,6 +112,22 @@ public:
     VkDescriptorSet allocateSingleDescriptorSet(VkDescriptorPool pool,
         VkDescriptorSetLayout layout) const;
 
+    void writeBufferDescriptor(VkDescriptorSet set,
+        VkDescriptorType descriptorType,
+        uint32_t binding,
+        uint32_t arrayElement,
+        const Buffer *buffer,
+        VkDeviceSize offset = 0,
+        VkDeviceSize range = VK_WHOLE_SIZE) const;
+
+    void writeImageDescriptor(VkDescriptorSet set,
+        VkDescriptorType descriptorType,
+        uint32_t binding,
+        uint32_t arrayElement,
+        const Image2D *image,
+        VkImageLayout imageLayout,
+        VkSampler sampler);
+
     VkShaderModule loadShaderModule(const char *filename) const;
 
     VkInstance vk_instance = VK_NULL_HANDLE;
@@ -139,20 +155,16 @@ private:
 class SwapChain {
 public:
     void initialize(Device *device);
-
     void finalize();
-
     void resize();
-
     void acquire();
-
     void present();
 
-    VkSwapchainKHR vk_swapchain = VK_NULL_HANDLE;
-    VkPresentModeKHR vk_present_mode = VK_PRESENT_MODE_FIFO_KHR;
-    uint32_t current_image_index = 0;
-    VkFormat image_format = VK_FORMAT_UNDEFINED;
-    VkColorSpaceKHR image_color_space = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
+    VkSwapchainKHR vkSwapChain = VK_NULL_HANDLE;
+    VkPresentModeKHR presentMode = VK_PRESENT_MODE_FIFO_KHR;
+    uint32_t currentImageIndex = 0;
+    VkFormat imageFormat = VK_FORMAT_UNDEFINED;
+    VkColorSpaceKHR imageColorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
     VkExtent2D imageExtent = { 0, 0 };
 
     std::vector<VkImage> vkImages;
@@ -160,17 +172,46 @@ public:
 
 private:
     void createSwapChain();
-
     void destroySwapChain();
-
+    void selectPresentMode();
     void selectImageFormat();
-
     void retrieveImages();
-
     void createImageViews();
 
     Device *device = nullptr;
     VkFence acquire_fence = VK_NULL_HANDLE;
+};
+
+class DescriptorSetLayout {
+public:
+    void initialize(Device *device,
+        uint32_t bindingCount,
+        const VkDescriptorSetLayoutBinding *bindings);
+    void finalize();
+
+    template<size_t Count>
+    void initialize(Device *device,
+        const std::array<VkDescriptorSetLayoutBinding, Count> &bindings) {
+        initialize(
+            device, static_cast<uint32_t>(bindings.size()), bindings.data());
+    }
+
+    VkDescriptorSet allocateSet();
+    void freeSet(VkDescriptorSet set) { freeSetList_.push_back(set); }
+
+    [[nodiscard]] const VkDescriptorSetLayout &descriptorSetLayout() const {
+        return setLayout_;
+    }
+
+private:
+    Device *device_ = nullptr;
+    VkDescriptorSetLayout setLayout_ = VK_NULL_HANDLE;
+    std::vector<VkDescriptorPoolSize> allocationSizes_;
+
+    std::vector<VkDescriptorSet> freeSetList_;
+    std::vector<VkDescriptorPool> descriptorPools_;
+    size_t poolCapacity_ = 0;
+    size_t allocatedSize_ = 0;
 };
 
 #endif // GLSL_RAYTRACING_DEVICE_H

@@ -19,29 +19,29 @@ layout(rgba32f, set = 0, binding = 0) uniform image2D resultImage;
 layout(set = 1, binding = 0) readonly buffer HierarchyBuffer {
     Node nodes[];
 };
-
 layout(set = 1, binding = 1) readonly buffer IntegersBuffer {
     uint integers[];
 };
 layout(set = 1, binding = 2) readonly buffer FloatsBuffer {
     vec4 floats[];
 };
-/*
-layout(set = 1, binding = 3) readonly buffer LightUniformBuffer {
-    uint numLight;
+layout(set = 1, binding = 3) uniform LightUniformBuffer {
     vec4 lights[];
+    uint numLight;
 };
 
+//
 layout(set = 2, binding = 0) uniform CameraUniformBuffer {
-    vec3 eye_pos;
+    vec3 look_from;
+    vec3 look_to;
     vec3 up_dir;
-    vec3 from;
 
     vec3 top_left_corner;
     vec3 vertical;
     vec3 horizontal;
 };
 
+/*
 struct Ray {
     vec3 origin;
     vec3 direction;

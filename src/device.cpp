@@ -344,6 +344,30 @@ VkDescriptorSet Device::allocateSingleDescriptorSet(VkDescriptorPool pool,
     return descriptorSet;
 }
 
+void Device::writeBufferDescriptor(VkDescriptorSet set,
+    VkDescriptorType descriptorType,
+    uint32_t binding,
+    uint32_t arrayElement,
+    const Buffer *buffer,
+    VkDeviceSize offset,
+    VkDeviceSize range) const {
+    VkDescriptorBufferInfo bufferInfo = {};
+    bufferInfo.buffer = buffer->vk_buffer;
+    bufferInfo.offset = offset;
+    bufferInfo.range = range;
+
+    VkWriteDescriptorSet write = {};
+    write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    write.dstSet = set;
+    write.descriptorType = descriptorType;
+    write.dstBinding = binding;
+    write.dstArrayElement = arrayElement;
+    write.descriptorCount = 1;
+    write.pBufferInfo = &bufferInfo;
+
+    vkUpdateDescriptorSets(vkDevice, 1, &write, 0, nullptr);
+}
+
 VkShaderModule Device::loadShaderModule(const char *filename) const {
     auto blob = readFile(filename);
     if (blob.empty()) {
@@ -492,8 +516,8 @@ void SwapChain::finalize() {
         vkDestroyFence(device->vkDevice, acquire_fence, nullptr);
     }
 
-    if (device && vk_swapchain) {
-        vkDestroySwapchainKHR(device->vkDevice, vk_swapchain, nullptr);
+    if (device && vkSwapChain) {
+        vkDestroySwapchainKHR(device->vkDevice, vkSwapChain, nullptr);
     }
 }
 
@@ -504,11 +528,11 @@ void SwapChain::resize() {
 
 void SwapChain::acquire() {
     MUST_SUCCESS(vkAcquireNextImageKHR(device->vkDevice,
-        vk_swapchain,
+        vkSwapChain,
         UINT64_MAX,
         VK_NULL_HANDLE,
         acquire_fence,
-        &current_image_index));
+        &currentImageIndex));
 
     MUST_SUCCESS(vkWaitForFences(
         device->vkDevice, 1, &acquire_fence, VK_FALSE, UINT64_MAX));
@@ -519,8 +543,8 @@ void SwapChain::present() {
     VkPresentInfoKHR presentInfo = {};
     presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
     presentInfo.swapchainCount = 1;
-    presentInfo.pSwapchains = &vk_swapchain;
-    presentInfo.pImageIndices = &current_image_index;
+    presentInfo.pSwapchains = &vkSwapChain;
+    presentInfo.pImageIndices = &currentImageIndex;
 
     VkQueue q = VK_NULL_HANDLE;
     vkGetDeviceQueue(device->vkDevice, device->present_queue_index, 0, &q);
@@ -530,6 +554,7 @@ void SwapChain::present() {
 
 void SwapChain::createSwapChain() {
     selectImageFormat();
+    selectPresentMode();
 
     VkSurfaceCapabilitiesKHR caps = {};
     MUST_SUCCESS(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
@@ -545,8 +570,8 @@ void SwapChain::createSwapChain() {
     // image properties
     createInfo.imageArrayLayers = 1;
     createInfo.imageExtent = caps.currentExtent;
-    createInfo.imageFormat = image_format;
-    createInfo.imageColorSpace = image_color_space;
+    createInfo.imageFormat = imageFormat;
+    createInfo.imageColorSpace = imageColorSpace;
     createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
                             VK_IMAGE_USAGE_TRANSFER_DST_BIT |
                             VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
@@ -569,10 +594,10 @@ void SwapChain::createSwapChain() {
     createInfo.preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
     createInfo.minImageCount = 2;
     createInfo.clipped = VK_TRUE;
-    createInfo.presentMode = vk_present_mode;
+    createInfo.presentMode = presentMode;
 
     MUST_SUCCESS(vkCreateSwapchainKHR(
-        device->vkDevice, &createInfo, nullptr, &vk_swapchain));
+        device->vkDevice, &createInfo, nullptr, &vkSwapChain));
 
     retrieveImages();
     createImageViews();
@@ -584,9 +609,9 @@ void SwapChain::destroySwapChain() {
     }
     vk_image_views.clear();
 
-    if (vk_swapchain) {
-        vkDestroySwapchainKHR(device->vkDevice, vk_swapchain, nullptr);
-        vk_swapchain = VK_NULL_HANDLE;
+    if (vkSwapChain) {
+        vkDestroySwapchainKHR(device->vkDevice, vkSwapChain, nullptr);
+        vkSwapChain = VK_NULL_HANDLE;
     }
 }
 
@@ -599,7 +624,7 @@ void SwapChain::selectImageFormat() {
     MUST_SUCCESS(vkGetPhysicalDeviceSurfaceFormatsKHR(
         device->vk_physical_device, device->vk_surface, &cnt, fmts.data()));
 
-    image_format = VK_FORMAT_UNDEFINED;
+    imageFormat = VK_FORMAT_UNDEFINED;
     const std::vector<VkFormat> want_formats = {
         VK_FORMAT_R8G8B8A8_UNORM,
         VK_FORMAT_B8G8R8A8_UNORM,
@@ -607,31 +632,48 @@ void SwapChain::selectImageFormat() {
     for (auto &f : want_formats) {
         for (auto &s : fmts) {
             if (s.format == f) {
-                image_format = s.format;
-                image_color_space = s.colorSpace;
+                imageFormat = s.format;
+                imageColorSpace = s.colorSpace;
                 break;
             }
         }
 
-        if (image_format != VK_FORMAT_UNDEFINED) {
+        if (imageFormat != VK_FORMAT_UNDEFINED) {
             break;
         }
     }
 
-    if (image_format == VK_FORMAT_UNDEFINED) {
+    if (imageFormat == VK_FORMAT_UNDEFINED) {
         perror("no suit format found!");
         exit(1);
+    }
+}
+
+void SwapChain::selectPresentMode() {
+    uint32_t cnt = 0;
+    MUST_SUCCESS(vkGetPhysicalDeviceSurfacePresentModesKHR(
+        device->vk_physical_device, device->vk_surface, &cnt, nullptr));
+
+    std::vector<VkPresentModeKHR> modes(cnt);
+    MUST_SUCCESS(vkGetPhysicalDeviceSurfacePresentModesKHR(
+        device->vk_physical_device, device->vk_surface, &cnt, modes.data()));
+
+    for (auto &m : modes) {
+        if (m == VK_PRESENT_MODE_MAILBOX_KHR) {
+            presentMode = m;
+            return;
+        }
     }
 }
 
 void SwapChain::retrieveImages() {
     uint32_t cnt = 0;
     MUST_SUCCESS(
-        vkGetSwapchainImagesKHR(device->vkDevice, vk_swapchain, &cnt, nullptr));
+        vkGetSwapchainImagesKHR(device->vkDevice, vkSwapChain, &cnt, nullptr));
 
     vkImages.resize(cnt);
     MUST_SUCCESS(vkGetSwapchainImagesKHR(
-        device->vkDevice, vk_swapchain, &cnt, vkImages.data()));
+        device->vkDevice, vkSwapChain, &cnt, vkImages.data()));
 }
 
 void SwapChain::createImageViews() {
@@ -640,7 +682,7 @@ void SwapChain::createImageViews() {
         VkImageViewCreateInfo imageViewCreateInfo = {};
         imageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
         imageViewCreateInfo.image = vkImages[i];
-        imageViewCreateInfo.format = image_format;
+        imageViewCreateInfo.format = imageFormat;
         imageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
         imageViewCreateInfo.components = identityComponentMapping();
         imageViewCreateInfo.subresourceRange =
@@ -651,4 +693,78 @@ void SwapChain::createImageViews() {
             nullptr,
             &vk_image_views[i]));
     }
+}
+
+void DescriptorSetLayout::initialize(Device *device,
+    uint32_t bindingCount,
+    const VkDescriptorSetLayoutBinding *bindings) {
+    device_ = device;
+
+    VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo = {};
+    descriptorSetLayoutCreateInfo.sType =
+        VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    descriptorSetLayoutCreateInfo.bindingCount = bindingCount;
+    descriptorSetLayoutCreateInfo.pBindings = bindings;
+    MUST_SUCCESS(vkCreateDescriptorSetLayout(device->vkDevice,
+        &descriptorSetLayoutCreateInfo,
+        nullptr,
+        &setLayout_));
+
+    std::unordered_map<VkDescriptorType, uint32_t> poolSizes{};
+    for (uint32_t i = 0; i < bindingCount; ++i) {
+        poolSizes[bindings[i].descriptorType] += bindings[i].descriptorCount;
+    }
+    for (const auto &p : poolSizes) {
+        allocationSizes_.push_back({ p.first, p.second });
+    }
+}
+
+void DescriptorSetLayout::finalize() {
+    vkDestroyDescriptorSetLayout(device_->vkDevice, setLayout_, nullptr);
+
+    for (auto &pool : descriptorPools_) {
+        vkDestroyDescriptorPool(device_->vkDevice, pool, nullptr);
+    }
+    descriptorPools_.clear();
+}
+
+VkDescriptorSet DescriptorSetLayout::allocateSet() {
+    if (!freeSetList_.empty()) {
+        auto temp = freeSetList_.back();
+        freeSetList_.pop_back();
+
+        return temp;
+    }
+
+    // prepare descriptor pool
+    if (allocatedSize_ == poolCapacity_) {
+        poolCapacity_ = 2 << descriptorPools_.size();
+        allocatedSize_ = 0U;
+
+        auto sizes = allocationSizes_;
+        for (auto &s : sizes) {
+            s.descriptorCount *= static_cast<uint32_t>(poolCapacity_);
+        }
+
+        VkDescriptorPool pool = VK_NULL_HANDLE;
+        VkDescriptorPoolCreateInfo descriptorPoolCreateInfo = {};
+        descriptorPoolCreateInfo.sType =
+            VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+        descriptorPoolCreateInfo.maxSets = static_cast<uint32_t>(poolCapacity_);
+        descriptorPoolCreateInfo.poolSizeCount =
+            static_cast<uint32_t>(sizes.size());
+        descriptorPoolCreateInfo.pPoolSizes = sizes.data();
+        MUST_SUCCESS(vkCreateDescriptorPool(
+            device_->vkDevice, &descriptorPoolCreateInfo, nullptr, &pool));
+
+        descriptorPools_.push_back(pool);
+    }
+
+    allocatedSize_ += 1;
+
+    VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
+    descriptorSet = device_->allocateSingleDescriptorSet(
+        descriptorPools_.back(), setLayout_);
+
+    return descriptorSet;
 }
