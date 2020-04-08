@@ -9,7 +9,5 @@ layout(set = 1, binding = 0) uniform timesUniformBuffer {
 };
 
 void main() {
-    // outCol = vec4((texture(img, texUV) / times).rgb, 1.0);
-    // outCol = texture(img, inUV);
-    outCol = vec4(float(times), 0, 0, 1);
+    outCol = vec4((texture(img, inUV).rgb / float(times)).rgb, 1.0);
 }

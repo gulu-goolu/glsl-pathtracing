@@ -571,7 +571,6 @@ void Render::displayFinalize() {
     device->destroyBuffer(&display_.times.buffer);
 
     // pipeline
-    vkDestroyDescriptorPool(device->vkDevice, display_.descriptorPool, nullptr);
     vkDestroyPipeline(device->vkDevice, display_.pipeline, nullptr);
     vkDestroyPipelineLayout(device->vkDevice, display_.pipelineLayout, nullptr);
     for (auto &f : display_.framebuffers) {
@@ -592,8 +591,6 @@ void Render::displayCreateDescriptorPool() {
     poolCreateInfo.maxSets = 1;
     poolCreateInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
     poolCreateInfo.pPoolSizes = poolSizes.data();
-    (vkCreateDescriptorPool(
-        device->vkDevice, &poolCreateInfo, nullptr, &display_.descriptorPool));
 }
 
 void Render::displayCreateTimesUniformBuffer() {

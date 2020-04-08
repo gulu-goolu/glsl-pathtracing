@@ -121,8 +121,6 @@ private:
     };
 
     struct Display {
-        VkDescriptorPool descriptorPool;
-
         TimesUniformBuffer times;
 
         VkRenderPass renderPass = VK_NULL_HANDLE;
