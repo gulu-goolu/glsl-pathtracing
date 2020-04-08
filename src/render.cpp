@@ -8,7 +8,7 @@
 #include <unordered_map>
 
 struct NodePack {
-    uint32_t shape_type;
+    uint32_t shapeType;
     uint32_t shape;
     uint32_t left;
     uint32_t right;
@@ -63,12 +63,12 @@ private:
 };
 
 void Render::initialize(Device *_device,
-    SwapChain *_swap_chain,
+    SwapChain *_swapChain,
     Scene *_scene,
-    const Camera &_camera) {
+    const CameraData &_camera) {
     // save arguments
     device = _device;
-    swapChain_ = _swap_chain;
+    swapChain_ = _swapChain;
     scene = _scene;
 
     // initialize components
@@ -83,18 +83,18 @@ void Render::initialize(Device *_device,
 
     VkCommandPoolCreateInfo commandPoolCreateInfo = {};
     commandPoolCreateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-    commandPoolCreateInfo.queueFamilyIndex = device->graphics_queue_index;
+    commandPoolCreateInfo.queueFamilyIndex = device->graphicsQueueIndex;
     commandPoolCreateInfo.flags = 0;
     MUST_SUCCESS(vkCreateCommandPool(
         device->vkDevice, &commandPoolCreateInfo, nullptr, &commandPool_));
 
-    commandBuffers_.resize(swapChain_->vk_images.size());
+    commandBuffers_.resize(swapChain_->vkImages.size());
     VkCommandBufferAllocateInfo allocateInfo = {};
     allocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     allocateInfo.commandPool = commandPool_;
     allocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     allocateInfo.commandBufferCount =
-        static_cast<uint32_t>(swapChain_->vk_images.size());
+        static_cast<uint32_t>(swapChain_->vkImages.size());
     MUST_SUCCESS(vkAllocateCommandBuffers(
         device->vkDevice, &allocateInfo, commandBuffers_.data()));
 
@@ -114,16 +114,16 @@ void Render::finalize() {
     sceneFinalize();
 }
 
-void Render::reset(Scene *_scene, const Camera &camera) {}
+void Render::reset(Scene *_scene, const CameraData &camera) {}
 
-void Render::drawFrame(uint32_t image_index) {
+void Render::drawFrame(uint32_t imageIndex) {
     VkSubmitInfo submitInfo = {};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &commandBuffers_[image_index];
+    submitInfo.pCommandBuffers = &commandBuffers_[imageIndex];
 
     VkQueue q = VK_NULL_HANDLE;
-    vkGetDeviceQueue(device->vkDevice, device->graphics_queue_index, 0, &q);
+    vkGetDeviceQueue(device->vkDevice, device->graphicsQueueIndex, 0, &q);
 
     MUST_SUCCESS(vkQueueSubmit(q, 1, &submitInfo, submitFence_));
     MUST_SUCCESS(vkWaitForFences(
@@ -141,20 +141,37 @@ void Render::sceneInitialize() {
     // pack_.initialize(scene->root);
     //
     NodePack pack[4] = {};
-    pack[0].shape_type = 0;
-    pack[1].shape_type = 1;
-    pack[2].shape_type = 0;
-    pack[3].shape_type = 1;
+    pack[0].shapeType = 0;
+    pack[1].shapeType = 1;
+    pack[2].shapeType = 0;
+    pack[3].shapeType = 1;
     sceneCreateStorageBuffer(
         &sceneBuffer_.hierarchyReadonlyBuffer, 0, sizeof(pack), pack);
+
+    // integers storage buffer
+    uint32_t integers[4] = { 1, 0, 1, 1 };
+    sceneCreateStorageBuffer(
+        &sceneBuffer_.integersReadonlyBuffer, 1, sizeof(integers), integers);
+
+    // floats storage buffer
+    glm::vec4 floats[1] = {};
+    floats[0] = glm::vec4(1, 1, 0, 1);
+    sceneCreateStorageBuffer(
+        &sceneBuffer_.floatsReadonlyBuffer, 2, sizeof(floats), floats);
+
+    // lights storage buffer
 }
 
 void Render::sceneFinalize() {
     vkDestroyDescriptorSetLayout(
-        device->vkDevice, sceneBuffer_.sceneDescriptorSetLayout, nullptr);
+        device->vkDevice, sceneBuffer_.descriptorSetLayout, nullptr);
     vkDestroyDescriptorPool(
-        device->vkDevice, sceneBuffer_.sceneDescriptorSetPool, nullptr);
+        device->vkDevice, sceneBuffer_.descriptorPool, nullptr);
+
+    // destroy buffers
     device->destroyBuffer(&sceneBuffer_.hierarchyReadonlyBuffer);
+    device->destroyBuffer(&sceneBuffer_.integersReadonlyBuffer);
+    device->destroyBuffer(&sceneBuffer_.floatsReadonlyBuffer);
 }
 
 void Render::sceneCreateDescriptorPool() {
@@ -172,7 +189,7 @@ void Render::sceneCreateDescriptorPool() {
     MUST_SUCCESS(vkCreateDescriptorPool(device->vkDevice,
         &descriptor_pool_create_info,
         nullptr,
-        &sceneBuffer_.sceneDescriptorSetPool));
+        &sceneBuffer_.descriptorPool));
 }
 
 void Render::sceneCreateDescriptorSetLayout() {
@@ -197,18 +214,17 @@ void Render::sceneCreateDescriptorSetLayout() {
     MUST_SUCCESS(vkCreateDescriptorSetLayout(device->vkDevice,
         &descriptor_set_layout_create_info,
         nullptr,
-        &sceneBuffer_.sceneDescriptorSetLayout));
+        &sceneBuffer_.descriptorSetLayout));
 }
 
 void Render::sceneAllocateDescriptorSet() {
     VkDescriptorSetAllocateInfo descriptor_set_allocate_info = {};
     descriptor_set_allocate_info.sType =
         VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    descriptor_set_allocate_info.descriptorPool =
-        sceneBuffer_.sceneDescriptorSetPool;
+    descriptor_set_allocate_info.descriptorPool = sceneBuffer_.descriptorPool;
     descriptor_set_allocate_info.descriptorSetCount = 1;
     descriptor_set_allocate_info.pSetLayouts =
-        &sceneBuffer_.sceneDescriptorSetLayout;
+        &sceneBuffer_.descriptorSetLayout;
 
     MUST_SUCCESS(vkAllocateDescriptorSets(device->vkDevice,
         &descriptor_set_allocate_info,
@@ -327,22 +343,18 @@ void Render::traceCreateResultImage() {
         &trace_.result.immutableSampler));
 
     // create descriptor set layout
-    std::array<VkDescriptorSetLayoutBinding, 1> resultBindings = {};
-    resultBindings[0].descriptorCount = 1;
-    resultBindings[0].binding = 0;
-    resultBindings[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-    resultBindings[0].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+    std::array<VkDescriptorSetLayoutBinding, 1> storageSetLayoutBindings = {};
+    storageSetLayoutBindings[0].descriptorCount = 1;
+    storageSetLayoutBindings[0].binding = 0;
+    storageSetLayoutBindings[0].descriptorType =
+        VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    storageSetLayoutBindings[0].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
     trace_.result.storageSetLayout =
-        device->createDescriptorSetLayout(resultBindings);
+        device->createDescriptorSetLayout(storageSetLayoutBindings);
 
     // allocate descriptor set
-    VkDescriptorSetAllocateInfo writeSetAllocateInfo = {};
-    writeSetAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    writeSetAllocateInfo.descriptorPool = trace_.descriptorPool;
-    writeSetAllocateInfo.descriptorSetCount = 1;
-    writeSetAllocateInfo.pSetLayouts = &trace_.result.storageSetLayout;
-    MUST_SUCCESS(vkAllocateDescriptorSets(
-        device->vkDevice, &writeSetAllocateInfo, &trace_.result.storageSet));
+    trace_.result.storageSet = device->allocateSingleDescriptorSet(
+        trace_.descriptorPool, trace_.result.storageSetLayout);
 
     // write descriptor
     VkDescriptorImageInfo storageImageDescriptor = {};
@@ -355,32 +367,21 @@ void Render::traceCreateResultImage() {
         &storageImageDescriptor);
 
     // create read setLayout
-    VkDescriptorSetLayoutBinding readSetLayoutBinding = {};
-    readSetLayoutBinding.descriptorCount = 1;
-    readSetLayoutBinding.descriptorType =
+    std::array<VkDescriptorSetLayoutBinding, 1> sampledSetLayoutBindings = {};
+    sampledSetLayoutBindings[0].descriptorCount = 1;
+    sampledSetLayoutBindings[0].descriptorType =
         VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    readSetLayoutBinding.binding = 0;
-    readSetLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-    readSetLayoutBinding.pImmutableSamplers = &trace_.result.immutableSampler;
+    sampledSetLayoutBindings[0].binding = 0;
+    sampledSetLayoutBindings[0].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    sampledSetLayoutBindings[0].pImmutableSamplers =
+        &trace_.result.immutableSampler;
 
-    VkDescriptorSetLayoutCreateInfo readSetLayoutCreateInfo = {};
-    readSetLayoutCreateInfo.sType =
-        VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    readSetLayoutCreateInfo.bindingCount = 1;
-    readSetLayoutCreateInfo.pBindings = &readSetLayoutBinding;
-    MUST_SUCCESS(vkCreateDescriptorSetLayout(device->vkDevice,
-        &readSetLayoutCreateInfo,
-        nullptr,
-        &trace_.result.sampledSetLayout));
+    trace_.result.sampledSetLayout =
+        device->createDescriptorSetLayout(sampledSetLayoutBindings);
 
     // allocate read set
-    VkDescriptorSetAllocateInfo readSetAllocateInfo = {};
-    readSetAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    readSetAllocateInfo.descriptorPool = trace_.descriptorPool;
-    readSetAllocateInfo.descriptorSetCount = 1;
-    readSetAllocateInfo.pSetLayouts = &trace_.result.sampledSetLayout;
-    MUST_SUCCESS(vkAllocateDescriptorSets(
-        device->vkDevice, &readSetAllocateInfo, &trace_.result.sampledSet));
+    trace_.result.sampledSet = device->allocateSingleDescriptorSet(
+        trace_.descriptorPool, trace_.result.sampledSetLayout);
 
     // write to sampler
     VkDescriptorImageInfo sampledImageDescriptor = {};
@@ -397,7 +398,7 @@ void Render::traceCreateResultImage() {
 void Render::traceCreatePipelineLayout() {
     std::array<VkDescriptorSetLayout, 2> descriptor_set_layouts = {};
     descriptor_set_layouts[0] = trace_.result.storageSetLayout;
-    descriptor_set_layouts[1] = sceneBuffer_.sceneDescriptorSetLayout;
+    descriptor_set_layouts[1] = sceneBuffer_.descriptorSetLayout;
 
     VkPipelineLayoutCreateInfo pipeline_layout_create_info = {};
     pipeline_layout_create_info.sType =
@@ -645,7 +646,7 @@ void Render::displayCreateRenderPass() {
 }
 
 void Render::displayCreateFramebuffers() {
-    display_.framebuffers.resize(swapChain_->vk_images.size());
+    display_.framebuffers.resize(swapChain_->vkImages.size());
     for (size_t i = 0; i < display_.framebuffers.size(); ++i) {
         VkFramebufferCreateInfo framebufferCreateInfo = {};
         framebufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
@@ -831,7 +832,7 @@ void Render::buildCommandBuffer() {
 
         VkImageMemoryBarrier barrier = {};
         barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-        barrier.image = swapChain_->vk_images[i];
+        barrier.image = swapChain_->vkImages[i];
         barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
         barrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
         barrier.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;

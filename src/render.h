@@ -9,22 +9,24 @@
 #include "glm/glm.hpp"
 #include "scene.h"
 
-struct Camera {
-    glm::vec3 glm;
+struct CameraData {
+    glm::vec3 from;
+    glm::vec3 to;
+    glm::vec3 up;
 };
 
 class Render {
 public:
-    void initialize(Device *device,
-        SwapChain *swap_chain,
+    void initialize(Device *_device,
+        SwapChain *_swapChain,
         Scene *_scene,
-        const Camera &_camera);
+        const CameraData &_camera);
     void finalize();
 
-    void reset(Scene *_scene, const Camera &camera);
+    void reset(Scene *_scene, const CameraData &camera);
 
     // record render commands
-    void drawFrame(uint32_t image_index);
+    void drawFrame(uint32_t imageIndex);
 
 private:
     struct SceneBuffer {
@@ -33,9 +35,9 @@ private:
         Buffer floatsReadonlyBuffer;
         Buffer lightsReadonlyBuffer;
 
-        VkDescriptorSetLayout sceneDescriptorSetLayout;
+        VkDescriptorSetLayout descriptorSetLayout;
         VkDescriptorSet descriptorSet;
-        VkDescriptorPool sceneDescriptorSetPool;
+        VkDescriptorPool descriptorPool;
     };
 
     void sceneInitialize();
@@ -60,6 +62,8 @@ private:
 
     struct CameraUBO {
         Buffer buffer;
+
+        CameraData data;
 
         VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
         VkDescriptorSetLayout descriptorSetLayout = VK_NULL_HANDLE;

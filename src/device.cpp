@@ -149,7 +149,7 @@ void Device::updateBuffer(Buffer *buffer,
     }
 
     // copy buffer
-    VkCommandBuffer cmd = beginTransientCommandBuffer(graphics_queue_index);
+    VkCommandBuffer cmd = beginTransientCommandBuffer(graphicsQueueIndex);
 
     const auto set_barrier = [&cmd, &buffer, &offset, &size](
                                  VkPipelineStageFlags srcStage,
@@ -394,13 +394,13 @@ void Device::selectPhysicalDevice() {
         vkEnumeratePhysicalDevices(vk_instance, &cnt, physical_devices.data()));
 
     const auto make_invalid = [=] {
-        graphics_queue_index = UINT32_MAX;
+        graphicsQueueIndex = UINT32_MAX;
         compute_queue_index = UINT32_MAX;
         present_queue_index = UINT32_MAX;
     };
 
     const auto is_valid = [=] {
-        return graphics_queue_index != UINT32_MAX &&
+        return graphicsQueueIndex != UINT32_MAX &&
                compute_queue_index != UINT32_MAX &&
                present_queue_index != UINT32_MAX;
     };
@@ -422,7 +422,7 @@ void Device::selectPhysicalDevice() {
             }
             return UINT32_MAX; // invalid
         };
-        graphics_queue_index = find_queue_index(VK_QUEUE_GRAPHICS_BIT);
+        graphicsQueueIndex = find_queue_index(VK_QUEUE_GRAPHICS_BIT);
         compute_queue_index = find_queue_index(VK_QUEUE_COMPUTE_BIT);
 
         for (uint32_t i = 0; i < q_cnt; ++i) {
@@ -445,7 +445,7 @@ void Device::selectPhysicalDevice() {
 
 void Device::createLogicDevice() {
     std::unordered_set<uint32_t> queue_indices;
-    queue_indices.insert(graphics_queue_index);
+    queue_indices.insert(graphicsQueueIndex);
     queue_indices.insert(compute_queue_index);
     queue_indices.insert(present_queue_index);
 
@@ -553,7 +553,7 @@ void SwapChain::createSwapChain() {
 
     // share modes
     const uint32_t indices[] = {
-        device->graphics_queue_index,
+        device->graphicsQueueIndex,
         device->present_queue_index,
     };
     if (indices[0] == indices[1]) {
@@ -629,17 +629,17 @@ void SwapChain::retrieveImages() {
     MUST_SUCCESS(
         vkGetSwapchainImagesKHR(device->vkDevice, vk_swapchain, &cnt, nullptr));
 
-    vk_images.resize(cnt);
+    vkImages.resize(cnt);
     MUST_SUCCESS(vkGetSwapchainImagesKHR(
-        device->vkDevice, vk_swapchain, &cnt, vk_images.data()));
+        device->vkDevice, vk_swapchain, &cnt, vkImages.data()));
 }
 
 void SwapChain::createImageViews() {
-    vk_image_views.resize(vk_images.size());
-    for (size_t i = 0; i < vk_images.size(); ++i) {
+    vk_image_views.resize(vkImages.size());
+    for (size_t i = 0; i < vkImages.size(); ++i) {
         VkImageViewCreateInfo imageViewCreateInfo = {};
         imageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-        imageViewCreateInfo.image = vk_images[i];
+        imageViewCreateInfo.image = vkImages[i];
         imageViewCreateInfo.format = image_format;
         imageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
         imageViewCreateInfo.components = identityComponentMapping();

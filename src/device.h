@@ -118,7 +118,7 @@ public:
     VkSurfaceKHR vk_surface = VK_NULL_HANDLE;
 
     VkPhysicalDevice vk_physical_device = VK_NULL_HANDLE;
-    uint32_t graphics_queue_index = UINT32_MAX;
+    uint32_t graphicsQueueIndex = UINT32_MAX;
     uint32_t compute_queue_index = UINT32_MAX;
     uint32_t present_queue_index = UINT32_MAX;
 
@@ -155,7 +155,7 @@ public:
     VkColorSpaceKHR image_color_space = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
     VkExtent2D imageExtent = { 0, 0 };
 
-    std::vector<VkImage> vk_images;
+    std::vector<VkImage> vkImages;
     std::vector<VkImageView> vk_image_views;
 
 private:

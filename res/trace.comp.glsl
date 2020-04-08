@@ -19,13 +19,14 @@ layout(rgba32f, set = 0, binding = 0) uniform image2D resultImage;
 layout(set = 1, binding = 0) readonly buffer HierarchyBuffer {
     Node nodes[];
 };
-/*
+
 layout(set = 1, binding = 1) readonly buffer IntegersBuffer {
     uint integers[];
 };
 layout(set = 1, binding = 2) readonly buffer FloatsBuffer {
     vec4 floats[];
 };
+/*
 layout(set = 1, binding = 3) readonly buffer LightUniformBuffer {
     uint numLight;
     vec4 lights[];
@@ -71,9 +72,5 @@ Hit hit_scene(Ray ray)  {
 void main() {
     ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
     vec3 col = imageLoad(resultImage, pos).xyz + vec3(0.01);
-    float r = float(nodes[0].shape_type);
-    float g = float(nodes[1].shape_type);
-    float b = float(nodes[2].shape_type);
-    float a = float(nodes[3].shape_type);
-    imageStore(resultImage, pos, vec4(r, g, b, a));
+    imageStore(resultImage, pos, floats[0]);
 }
