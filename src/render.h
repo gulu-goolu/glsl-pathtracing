@@ -105,7 +105,7 @@ private:
         uint32_t dstBinding,
         VkDescriptorType descriptorType,
         const VkDescriptorImageInfo *imageInfo);
-    void traceDispatch(VkCommandBuffer commandBuffer) const;
+    void trace_dispatch(VkCommandBuffer commandBuffer) const;
 
     struct TimesData {
         uint32_t times;
@@ -131,13 +131,13 @@ private:
         VkPipeline pipeline = VK_NULL_HANDLE;
     };
 
-    void displayInitialize();
-    void displayFinalize();
-    void displayCreateTimesUniformBuffer();
-    void displayCreateRenderPass();
-    void displayCreateFramebuffers();
-    void displayCreatePipelineLayout();
-    void displayCreatePipeline();
+    void display_initialize();
+    void display_finalize();
+    void display_createTimesUniformBuffer();
+    void display_createRenderPass();
+    void display_createFrameBuffers();
+    void display_createPipelineLayout();
+    void display_createPipeline();
     void display_draw(VkCommandBuffer commandBuffer, uint32_t imageIndex);
 
     void buildCommandBuffer();

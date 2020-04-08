@@ -74,7 +74,7 @@ void Render::initialize(Device *_device,
     // initialize components
     sceneInitialize();
     traceInitialize();
-    displayInitialize();
+    display_initialize();
 
     VkFenceCreateInfo submitFenceInfo = {};
     submitFenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
@@ -109,7 +109,7 @@ void Render::finalize() {
         vkDestroyCommandPool(device->vkDevice, commandPool_, nullptr);
     }
 
-    displayFinalize();
+    display_finalize();
     traceFinalize();
     sceneFinalize();
 }
@@ -117,6 +117,17 @@ void Render::finalize() {
 void Render::reset(Scene *_scene, const CameraData &camera) {}
 
 void Render::drawFrame(uint32_t imageIndex) {
+    // update times
+    display_.times.data.times++;
+    device->updateBuffer(&display_.times.buffer,
+        0,
+        sizeof(TimesData),
+        VK_PIPELINE_STAGE_HOST_BIT,
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        VK_ACCESS_HOST_WRITE_BIT,
+        VK_ACCESS_SHADER_READ_BIT,
+        &display_.times.data);
+
     VkSubmitInfo submitInfo = {};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     submitInfo.commandBufferCount = 1;
@@ -520,7 +531,7 @@ void Render::traceWriteImageDescriptor(VkDescriptorSet set,
         device->vkDevice, 1, &writeDescriptorSet, 0, nullptr);
 }
 
-void Render::traceDispatch(VkCommandBuffer commandBuffer) const {
+void Render::trace_dispatch(VkCommandBuffer commandBuffer) const {
     // update resultImage Layout
     traceUpdateResultImageLayout(commandBuffer,
         VK_ACCESS_MEMORY_READ_BIT,
@@ -556,15 +567,15 @@ void Render::traceDispatch(VkCommandBuffer commandBuffer) const {
         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 }
 
-void Render::displayInitialize() {
-    displayCreateTimesUniformBuffer();
-    displayCreateRenderPass();
-    displayCreateFramebuffers();
-    displayCreatePipelineLayout();
-    displayCreatePipeline();
+void Render::display_initialize() {
+    display_createTimesUniformBuffer();
+    display_createRenderPass();
+    display_createFrameBuffers();
+    display_createPipelineLayout();
+    display_createPipeline();
 }
 
-void Render::displayFinalize() {
+void Render::display_finalize() {
     // times uniform buffer
     display_.times.descriptorSetLayout.finalize();
     device->destroyBuffer(&display_.times.buffer);
@@ -580,7 +591,7 @@ void Render::displayFinalize() {
     }
 }
 
-void Render::displayCreateTimesUniformBuffer() {
+void Render::display_createTimesUniformBuffer() {
     // create buffer
     device->createBuffer(sizeof(TimesData),
         VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
@@ -588,8 +599,7 @@ void Render::displayCreateTimesUniformBuffer() {
         &display_.times.buffer);
 
     // update data
-    TimesData data = {};
-    data.times = 1;
+    display_.times.data.times = 0;
     device->updateBuffer(&display_.times.buffer,
         0,
         sizeof(TimesData),
@@ -597,7 +607,7 @@ void Render::displayCreateTimesUniformBuffer() {
         VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
         VK_ACCESS_HOST_WRITE_BIT,
         VK_ACCESS_SHADER_READ_BIT,
-        &data);
+        &display_.times.data);
 
     // create descriptor set layout
     std::array<VkDescriptorSetLayoutBinding, 1> bindings = {};
@@ -619,7 +629,7 @@ void Render::displayCreateTimesUniformBuffer() {
         &display_.times.buffer);
 }
 
-void Render::displayCreateRenderPass() {
+void Render::display_createRenderPass() {
     std::array<VkAttachmentDescription, 1> attachmentDescriptions = {};
     // color buffer
     attachmentDescriptions[0].samples = VK_SAMPLE_COUNT_1_BIT;
@@ -673,7 +683,7 @@ void Render::displayCreateRenderPass() {
         &display_.renderPass));
 }
 
-void Render::displayCreateFramebuffers() {
+void Render::display_createFrameBuffers() {
     display_.framebuffers.resize(swapChain_->vkImages.size());
     for (size_t i = 0; i < display_.framebuffers.size(); ++i) {
         VkFramebufferCreateInfo framebufferCreateInfo = {};
@@ -691,7 +701,7 @@ void Render::displayCreateFramebuffers() {
     }
 }
 
-void Render::displayCreatePipelineLayout() {
+void Render::display_createPipelineLayout() {
     std::array<VkDescriptorSetLayout, 2> setLayouts = {};
     setLayouts[0] = trace_.result.sampledSetLayout.descriptorSetLayout();
     setLayouts[1] = display_.times.descriptorSetLayout.descriptorSetLayout();
@@ -708,7 +718,7 @@ void Render::displayCreatePipelineLayout() {
         &display_.pipelineLayout));
 }
 
-void Render::displayCreatePipeline() {
+void Render::display_createPipeline() {
     std::vector<std::pair<VkShaderModule, VkShaderStageFlagBits>>
         shaderStages = {
             {
@@ -807,23 +817,12 @@ void Render::displayCreatePipeline() {
 }
 
 void Render::display_draw(VkCommandBuffer commandBuffer, uint32_t imageIndex) {
-    // update times buffer
-    display_.times.data.times++;
-    device->updateBuffer(&display_.times.buffer,
-        0,
-        sizeof(TimesData),
-        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-        VK_ACCESS_SHADER_READ_BIT,
-        VK_ACCESS_SHADER_READ_BIT,
-        &display_.times.data);
-
     // draw
     std::array<VkClearValue, 1> clear_values = {};
-    clear_values[0].color.float32[0] = 1.0f;
+    clear_values[0].color.float32[0] = 0.0f;
     clear_values[0].color.float32[1] = 0.0f;
     clear_values[0].color.float32[2] = 0.0f;
-    clear_values[0].color.float32[3] = 1.0f;
+    clear_values[0].color.float32[3] = 0.0f;
 
     VkRenderPassBeginInfo renderPassBeginInfo = {};
     renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -870,7 +869,7 @@ void Render::buildCommandBuffer() {
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
         MUST_SUCCESS(vkBeginCommandBuffer(commandBuffers_[i], &beginInfo));
 
-        traceDispatch(commandBuffers_[i]);
+        trace_dispatch(commandBuffers_[i]);
         display_draw(commandBuffers_[i], uint32_t(i));
 
         VkImageMemoryBarrier barrier = {};

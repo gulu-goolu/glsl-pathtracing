@@ -71,6 +71,6 @@ Hit hit_scene(Ray ray)  {
 
 void main() {
     ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
-    vec3 col = imageLoad(resultImage, pos).xyz + vec3(0.01);
-    imageStore(resultImage, pos, floats[0]);
+    vec3 col = imageLoad(resultImage, pos).rgb + vec3(0.5, 1.0, 0.2);
+    imageStore(resultImage, pos, vec4(col, 1.0));
 }
