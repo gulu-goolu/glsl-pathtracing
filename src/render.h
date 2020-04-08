@@ -116,6 +116,7 @@ private:
 
     struct TimesUniformBuffer {
         Buffer buffer;
+        TimesData data;
         DescriptorSetLayout descriptorSetLayout;
         VkDescriptorSet descriptorSet;
     };
@@ -137,7 +138,7 @@ private:
     void displayCreateFramebuffers();
     void displayCreatePipelineLayout();
     void displayCreatePipeline();
-    void displayDraw(VkCommandBuffer commandBuffer, uint32_t imageIndex);
+    void display_draw(VkCommandBuffer commandBuffer, uint32_t imageIndex);
 
     void buildCommandBuffer();
 

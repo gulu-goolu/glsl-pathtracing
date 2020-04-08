@@ -806,7 +806,19 @@ void Render::displayCreatePipeline() {
     }
 }
 
-void Render::displayDraw(VkCommandBuffer commandBuffer, uint32_t imageIndex) {
+void Render::display_draw(VkCommandBuffer commandBuffer, uint32_t imageIndex) {
+    // update times buffer
+    display_.times.data.times++;
+    device->updateBuffer(&display_.times.buffer,
+        0,
+        sizeof(TimesData),
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        VK_ACCESS_SHADER_READ_BIT,
+        VK_ACCESS_SHADER_READ_BIT,
+        &display_.times.data);
+
+    // draw
     std::array<VkClearValue, 1> clear_values = {};
     clear_values[0].color.float32[0] = 1.0f;
     clear_values[0].color.float32[1] = 0.0f;
@@ -859,7 +871,7 @@ void Render::buildCommandBuffer() {
         MUST_SUCCESS(vkBeginCommandBuffer(commandBuffers_[i], &beginInfo));
 
         traceDispatch(commandBuffers_[i]);
-        displayDraw(commandBuffers_[i], uint32_t(i));
+        display_draw(commandBuffers_[i], uint32_t(i));
 
         VkImageMemoryBarrier barrier = {};
         barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
