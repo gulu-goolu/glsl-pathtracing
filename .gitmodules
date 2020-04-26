@@ -1,0 +1,3 @@
+[submodule "3rdparty/vkut"]
+	path = 3rdparty/vkut
+	url = https://github.com/murmur-wheel/vkut.git
