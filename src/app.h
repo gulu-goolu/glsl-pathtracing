@@ -5,7 +5,6 @@
 #ifndef GLSL_RAYTRACING_APP_H
 #define GLSL_RAYTRACING_APP_H
 
-#include "device.h"
 #include "render.h"
 #include <GLFW/glfw3.h>
 #include <vector>
@@ -25,10 +24,6 @@ private:
     static void mouseMoveProxy(GLFWwindow *window, double x, double y);
 
     GLFWwindow *window_ = nullptr;
-
-    Device device_;
-    SwapChain swap_chain_;
-    Render render_;
 };
 
 #endif // GLSL_RAYTRACING_APP_H

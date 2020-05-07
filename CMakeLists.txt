@@ -16,11 +16,10 @@ add_custom_target(shader
 
 set(SRCS
         src/util.cpp
-        src/device.cpp
         src/scene.cpp
         src/render.cpp
         src/app.cpp
-        src/main.cpp)
+        src/main.cpp src/camera.h src/camera.cpp src/bvh.h src/bvh.cpp)
 add_executable(demo ${SRCS})
 
 target_include_directories(demo
@@ -43,4 +42,4 @@ endif ()
 
 # demo
 add_dependencies(demo shader)
-target_link_libraries(demo glfw)
+target_link_libraries(demo glfw vkut)
