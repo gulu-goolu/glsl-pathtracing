@@ -13,7 +13,7 @@
 然后使用 git 下载项目代码：
 
 ```bash
-git clone https://github.com/murmur-wheel/glsl-raytracing.git
+git clone --recursive https://github.com/murmur-wheel/glsl-raytracing.git
 ```
 
 然后使用 cmake 生产解决方案
