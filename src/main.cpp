@@ -1,12 +1,12 @@
-#include <vulkan/vulkan.h>
-#include <cstdio>
+//
+// Created by murmur.wheel@gmail.com on 2020/5/23.
+//
+
+#include "util.h"
 
 int main() {
-    VkInstance instance = VK_NULL_HANDLE;
-    VkInstanceCreateInfo instance_create_info = {};
-    instance_create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-    if (vkCreateInstance(&instance_create_info, nullptr, &instance) == VK_SUCCESS) {
-        printf("hello, vulkan\n");
-        vkDestroyInstance(instance, nullptr);
+    Blob shader_frag_blob;
+    if (read_file("res/compile.frag.spv", shader_frag_blob)) {
+        printf("load shader success!!\n");
     }
 }
