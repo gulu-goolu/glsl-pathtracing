@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.10)
 project(glsl-raytracing)
 
+add_subdirectory(third_party)
+
 include(cmake/vulkan.cmake)
 include(cmake/shader.cmake)
 
@@ -21,6 +23,7 @@ set(SRCS
         src/bvh.h
         src/bvh.cpp)
 add_executable(glsl-raytracing ${SRCS})
+target_link_libraries(glsl-raytracing glfw)
 add_vulkan_support(glsl-raytracing)
 target_add_shader(glsl-raytracing compile.vert)
 target_add_shader(glsl-raytracing compile.frag)
