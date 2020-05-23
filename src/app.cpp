@@ -3,3 +3,7 @@
 //
 
 #include "app.h"
+
+void App::startup(int width, int height) {}
+
+void App::run() {}

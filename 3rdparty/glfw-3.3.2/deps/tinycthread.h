@@ -367,7 +367,7 @@ void thrd_exit(int res);
 * until the other thread has terminated.
 * @param thr The thread to join with.
 * @param res If this pointer is not NULL, the function will store the result
-*        code of the given thread in the integer pointed to by @c res.
+*        code of the given thread in the integer pointed to by @c shader.
 * @return @ref thrd_success on success, or @ref thrd_error if the request could
 * not be honored.
 */
