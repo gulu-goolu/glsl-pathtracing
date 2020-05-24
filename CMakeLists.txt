@@ -7,21 +7,26 @@ include(cmake/vulkan.cmake)
 include(cmake/shader.cmake)
 
 set(SRCS
-        src/main.cpp
+        # headers
         src/util.h
-        src/util.cpp
-        src/device.h
-        src/device.cpp
+        src/vkut.h
         src/camera.h
-        src/camera.cpp
         src/app.h
-        src/app.cpp
         src/scene.h
-        src/scene.cpp
         src/render.h
-        src/render.cpp
         src/bvh.h
-        src/bvh.cpp)
+
+        # sources
+        src/util.cpp
+        src/vkut.cpp
+        src/camera.cpp
+        src/app.cpp
+        src/scene.cpp
+        src/render.cpp
+        src/bvh.cpp
+
+        # entry point
+        src/main.cpp)
 add_executable(glsl-raytracing ${SRCS})
 target_link_libraries(glsl-raytracing glfw)
 add_vulkan_support(glsl-raytracing)
