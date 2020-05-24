@@ -12,7 +12,6 @@
 #include <GLFW/glfw3.h>
 // clang-format on
 
-class SwapChain;
 class IVKUTNotifier;
 
 struct Buffer {
@@ -24,10 +23,11 @@ struct Texture {};
 
 class IVKUTNotifier {
 public:
-    virtual void on_swap_chain_create(SwapChain *swap_chain) = 0;
-    virtual void on_swap_chain_destroy(SwapChain *swap_chain) = 0;
+    virtual void on_swap_chain_create() = 0;
+    virtual void on_swap_chain_destroy() = 0;
 };
 
+// singleton
 class VKUT {
 public:
     // startup VKUT
@@ -45,8 +45,18 @@ public:
         return vk_physical_device_;
     }
     [[nodiscard]] const VkDevice &vk_device() const { return vk_device_; }
-    [[nodiscard]] SwapChain *swap_chain() const { return swap_chain_; }
 
+    void acquire();
+    void present();
+    void resize();
+    [[nodiscard]] uint32_t back_image_index() const {
+        return back_image_index_;
+    }
+    [[nodiscard]] VkImage get_swap_chain_image(uint32_t index) const {
+        return swap_chain_images_[index];
+    }
+
+    // resource creation
     [[nodiscard]] uint32_t get_memory_type(uint32_t type_bits,
         VkMemoryPropertyFlags memory_flags) const;
     void create_buffer(VkDeviceSize size,
@@ -54,6 +64,7 @@ public:
         VkMemoryPropertyFlags memory_flags,
         Buffer *buffer);
     void destroy_buffer(Buffer *buffer);
+    void update_buffer_data(Buffer *buffer);
 
     [[nodiscard]] VkCommandBuffer begin_transient(uint32_t queue_family_index);
     void flush_transient(VkCommandBuffer command_buffer);
@@ -63,42 +74,40 @@ private:
         const std::vector<const char *> &enabled_extensions);
     void select_physical_device();
     void create_logic_device();
-    void create_swap_chain();
 
+    // initialize swap chain
+    void create_swap_chain_frame_independent_resources();
+    void destroy_swap_chain_frame_independent_resources();
+    void create_swap_chain_frame_dependent_resources();
+    void destroy_swap_chain_frame_dependent_resources();
+    void compute_swap_chain_extent();
+    void select_image_format();
+    void select_present_mode();
+
+    // device
     VkInstance vk_instance_{ VK_NULL_HANDLE };
     VkSurfaceKHR vk_surface_{ VK_NULL_HANDLE };
     VkPhysicalDevice vk_physical_device_{ VK_NULL_HANDLE };
     VkDevice vk_device_{ VK_NULL_HANDLE };
-    SwapChain *swap_chain_{ nullptr };
 
-    // for transient command buffer usage
+    // swap chain
+    uint32_t present_queue_family_index_{ UINT32_MAX };
+    VkExtent2D swap_chain_extent_{ 0, 0 };
+    VkFence swap_chain_acquire_fence_{ VK_NULL_HANDLE };
+    VkFormat swap_chain_format_{ VK_FORMAT_UNDEFINED };
+    VkPresentModeKHR swap_chain_present_mode_{ VK_PRESENT_MODE_FIFO_KHR };
+    VkSwapchainKHR vk_swap_chain_{ VK_NULL_HANDLE };
+    uint32_t back_image_index_{ 0 };
+    std::vector<VkImage> swap_chain_images_;
+
+    // transient command buffer
     std::unordered_map<uint32_t, VkCommandPool> transient_command_pools_;
     std::unordered_map<VkCommandBuffer, uint32_t> transient_command_buffers_;
 };
 
-class SwapChain {
-public:
-    void acquire();
-    void present();
-    [[nodiscard]] uint32_t back_image_index() const {
-        return back_image_index_;
-    }
-    const VkImage &get_image(uint32_t index) const { return vk_images_[index]; }
-    const VkImageView &get_image_view(uint32_t index) const {
-        return vk_image_views_[index];
-    }
-
-private:
-    VkFence acquire_fence_{ VK_NULL_HANDLE };
-    VkSwapchainKHR vk_swapchain_{ VK_NULL_HANDLE };
-    std::vector<VkImage> vk_images_;
-    std::vector<VkImageView> vk_image_views_;
-    uint32_t back_image_index_{ 0 };
-};
-
 const char *vk_result_string(VkResult result);
 
-#define VK_THROW_IF_FAILED(EXPR) \
+#define VKUT_THROW_IF_FAILED(EXPR) \
     do { \
         VkResult r = EXPR; \
         if (r != VK_SUCCESS) { \
