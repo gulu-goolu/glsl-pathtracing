@@ -13,6 +13,13 @@ int main() {
     auto window = glfwCreateWindow(1920, 1080, "window", nullptr, nullptr);
     VKUT::startup(window);
 
+    Buffer buffer;
+    VKUT::get()->create_buffer(1024,
+        VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        &buffer);
+    VKUT::get()->destroy_buffer(&buffer);
+
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
 

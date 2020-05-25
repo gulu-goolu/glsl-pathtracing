@@ -64,7 +64,10 @@ public:
         VkMemoryPropertyFlags memory_flags,
         Buffer *buffer);
     void destroy_buffer(Buffer *buffer);
-    void update_buffer_data(Buffer *buffer);
+    void update_buffer_data(Buffer *buffer,
+        VkDeviceSize offset,
+        VkDeviceSize range,
+        const void *data);
 
     [[nodiscard]] VkCommandBuffer begin_transient(uint32_t queue_family_index);
     void flush_transient(VkCommandBuffer command_buffer);

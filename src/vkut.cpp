@@ -107,6 +107,44 @@ uint32_t VKUT::get_memory_type(uint32_t type_bits,
     return UINT32_MAX;
 }
 
+void VKUT::create_buffer(VkDeviceSize size,
+    VkBufferUsageFlags usage,
+    VkMemoryPropertyFlags memory_flags,
+    Buffer *buffer) {
+    VkBufferCreateInfo buffer_create_info = {};
+    buffer_create_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    buffer_create_info.usage = usage;
+    buffer_create_info.size = size;
+    buffer_create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    buffer_create_info.queueFamilyIndexCount = 0;
+    buffer_create_info.pQueueFamilyIndices = nullptr;
+    VKUT_THROW_IF_FAILED(vkCreateBuffer(
+        vk_device_, &buffer_create_info, nullptr, &buffer->vk_buffer));
+
+    VkMemoryRequirements mem_req;
+    vkGetBufferMemoryRequirements(vk_device_, buffer->vk_buffer, &mem_req);
+
+    VkMemoryAllocateInfo memory_allocate_info = {};
+    memory_allocate_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    memory_allocate_info.memoryTypeIndex =
+        get_memory_type(mem_req.memoryTypeBits, memory_flags);
+    memory_allocate_info.allocationSize = mem_req.size;
+    VKUT_THROW_IF_FAILED(vkAllocateMemory(
+        vk_device_, &memory_allocate_info, nullptr, &buffer->vk_device_memory));
+
+    VKUT_THROW_IF_FAILED(vkBindBufferMemory(
+        vk_device_, buffer->vk_buffer, buffer->vk_device_memory, 0));
+}
+
+void VKUT::destroy_buffer(Buffer *buffer) {
+    if (buffer->vk_buffer) {
+        vkDestroyBuffer(vk_device_, buffer->vk_buffer, nullptr);
+    }
+    if (buffer->vk_device_memory) {
+        vkFreeMemory(vk_device_, buffer->vk_device_memory, nullptr);
+    }
+}
+
 VkCommandBuffer VKUT::begin_transient(uint32_t queue_family_index) {
     if (transient_command_pools_.find(queue_family_index) ==
         transient_command_pools_.end()) {
