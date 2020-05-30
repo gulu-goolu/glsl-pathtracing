@@ -9,7 +9,7 @@ include(cmake/shader.cmake)
 set(SRCS
         # headers
         src/util.h
-        src/vkut.h
+        src/device.h
         src/camera.h
         src/app.h
         src/scene.h
@@ -18,7 +18,7 @@ set(SRCS
 
         # sources
         src/util.cpp
-        src/vkut.cpp
+        src/device.cpp
         src/camera.cpp
         src/app.cpp
         src/scene.cpp
@@ -30,5 +30,20 @@ set(SRCS
 add_executable(glsl-raytracing ${SRCS})
 target_link_libraries(glsl-raytracing glfw)
 add_vulkan_support(glsl-raytracing)
-target_add_shader(glsl-raytracing compile.vert)
-target_add_shader(glsl-raytracing compile.frag)
+
+# shader compilation
+set(SHADER_SRCS
+        rt.vert
+        rt.frag)
+set(SHADER_SOURCE_DIR ${CMAKE_SOURCE_DIR}/shader)
+set(SHADER_BINARY_DIR ${CMAKE_BINARY_DIR}/shader)
+add_custom_command(TARGET glsl-raytracing
+        PRE_BUILD
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${SHADER_BINARY_DIR})
+foreach (SRC ${SHADER_SRCS})
+    set(SHADER_SOURCE ${SHADER_SOURCE_DIR}/${SRC}.glsl)
+    set(SHADER_BINARY ${SHADER_BINARY_DIR}/${SRC}.spv)
+    add_custom_command(TARGET glsl-raytracing
+            PRE_BUILD
+            COMMAND glslangValidator -V -o ${SHADER_BINARY} ${SHADER_SOURCE})
+endforeach ()

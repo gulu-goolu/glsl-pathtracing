@@ -5,4 +5,11 @@
 #ifndef GLSL_RAYTRACING_BVH_H
 #define GLSL_RAYTRACING_BVH_H
 
-#endif //GLSL_RAYTRACING_BVH_H
+#include "bvh.h"
+
+class BvhScene {
+ public:
+  void* descriptor_set() { return nullptr; }
+};
+
+#endif  // GLSL_RAYTRACING_BVH_H
