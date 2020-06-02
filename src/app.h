@@ -7,9 +7,9 @@
 
 #include "bvh.h"
 #include "camera.h"
-#include "device.h"
 #include "render.h"
 #include "scene.h"
+#include "vkut.h"
 
 class App {
  public:
@@ -23,8 +23,11 @@ class App {
  private:
   GLFWwindow* window_{nullptr};
 
-  Device* device_{nullptr};
-  SwapChain* swap_chain_{nullptr};
+  InstancePtr instance_;
+  SurfacePtr surface_;
+  DevicePtr device_;
+  SwapChainPtr swap_chain_;
+
   Scene* scene_{nullptr};
   BvhScene* bvh_scene_{nullptr};
   Camera* camera_{nullptr};

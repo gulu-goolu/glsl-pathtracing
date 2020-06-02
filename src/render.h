@@ -7,7 +7,7 @@
 
 #include "bvh.h"
 #include "camera.h"
-#include "device.h"
+#include "vkut.h"
 
 class Renderer {
  public:

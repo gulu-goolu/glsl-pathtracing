@@ -14,6 +14,10 @@ void App::startup(int width, int height) {
   glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
   window_ = glfwCreateWindow(width, height, title, nullptr, nullptr);
 
+  vkut_createSurfaceAndDevice(window_, &surface_, &device_);
+
+  swap_chain_ = std::make_shared<SwapChain>(device_, surface_);
+
   // TODO
   // create device
   // create swap chain and renderer
@@ -21,6 +25,9 @@ void App::startup(int width, int height) {
 }
 
 void App::shutdown() {
+  swap_chain_.reset();
+  device_.reset();
+  surface_.reset();
   // TODO
   // destroy scene
   // destroy render and swap chain
@@ -38,7 +45,9 @@ void App::run_event_loop() {
   while (!glfwWindowShouldClose(window_)) {
     glfwPollEvents();
 
+    swap_chain_->acquire();
     renderer_->render(bvh_scene_, camera_);
+    swap_chain_->present();
   }
 }
 

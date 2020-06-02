@@ -9,7 +9,7 @@ include(cmake/shader.cmake)
 set(SRCS
         # headers
         src/util.h
-        src/device.h
+        src/vkut.h
         src/camera.h
         src/app.h
         src/scene.h
@@ -18,7 +18,7 @@ set(SRCS
 
         # sources
         src/util.cpp
-        src/device.cpp
+        src/vkut.cpp
         src/camera.cpp
         src/app.cpp
         src/scene.cpp
