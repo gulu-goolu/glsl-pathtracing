@@ -7,7 +7,7 @@
 
 #include "util.h"
 
-class CameraData {
+struct CameraData {
   Vec3f look_from;
   Vec3f look_to;
   Vec3f up_dir;
@@ -32,7 +32,17 @@ class Camera {
 
 class FirstPersonCamera : public Camera {
  public:
+  explicit FirstPersonCamera(const Vec3f& look_from, const Vec3f& look_to,
+                             const Vec3f& up_dir, float fov_angle,
+                             float aspect);
+  void get_data(CameraData* out_data) override;
+
  private:
+  Vec3f look_from_;
+  Vec3f look_to_;
+  Vec3f up_dir_;
+  float fov_angle_{0.0f};
+  float aspect_{0.0f};
 };
 
 class ModelViewCamera : public Camera {
