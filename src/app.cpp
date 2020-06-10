@@ -15,13 +15,9 @@ void App::startup(int width, int height) {
   window_ = glfwCreateWindow(width, height, title, nullptr, nullptr);
 
   vkut_createSurfaceAndDevice(window_, &surface_, &device_);
-
   swap_chain_ = std::make_shared<SwapChain>(device_, surface_);
 
-  // TODO
-  // create device
-  // create swap chain and renderer
-  // create default scene
+  // create camera
 }
 
 void App::shutdown() {
@@ -46,7 +42,15 @@ void App::run_event_loop() {
     glfwPollEvents();
 
     swap_chain_->acquire();
-    renderer_->render(bvh_scene_, camera_);
+
+    CameraData camera_data;
+    camera_->get_data(&camera_data);
+    if (camera_->is_flag(CAMERA_FLAG_UPDATED)) {
+      renderer_->reset_trace_buffer();
+      camera_->remove_flag(CAMERA_FLAG_UPDATED);
+    }
+    renderer_->dispatch_trace_unit(bvh_scene_, camera_);
+
     swap_chain_->present();
   }
 }

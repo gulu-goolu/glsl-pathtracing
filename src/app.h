@@ -2,8 +2,8 @@
 // Created by murmur.wheel@gmail.com on 2020/5/23.
 //
 
-#ifndef GLSL_RAYTRACING_APP_H
-#define GLSL_RAYTRACING_APP_H
+#ifndef APP_H
+#define APP_H
 
 #include "bvh.h"
 #include "camera.h"
@@ -37,4 +37,4 @@ class App {
   void on_cursor_pos();
 };
 
-#endif  // GLSL_RAYTRACING_APP_H
+#endif  // APP_H

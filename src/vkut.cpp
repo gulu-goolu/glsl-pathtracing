@@ -44,13 +44,13 @@ std::vector<PhysicalDevicePtr> Instance::enumerate_physical_devices() {
 
 Surface::Surface(GLFWwindow* window, InstancePtr instance)
     : instance_(std::move(instance)) {
-  VKUT_THROW_IF_FAILED(glfwCreateWindowSurface(instance_->vkInstance(), window,
+  VKUT_THROW_IF_FAILED(glfwCreateWindowSurface(instance_->vk_instance(), window,
                                                nullptr, &vk_surface_));
 }
 
 Surface::~Surface() {
   if (vk_surface_) {
-    vkDestroySurfaceKHR(instance_->vkInstance(), vk_surface_, nullptr);
+    vkDestroySurfaceKHR(instance_->vk_instance(), vk_surface_, nullptr);
   }
 }
 
@@ -90,7 +90,7 @@ Device::Device(PhysicalDevicePtr physical_device,
   device_create_info.enabledExtensionCount = enabled_extension_count;
   device_create_info.ppEnabledExtensionNames = enabled_extensions;
   // clang-format on
-  VKUT_THROW_IF_FAILED(vkCreateDevice(physical_device_->vkPhysicalDevice(),
+  VKUT_THROW_IF_FAILED(vkCreateDevice(physical_device_->vk_physical_device(),
                                       &device_create_info, nullptr,
                                       &vk_device_));
 }
@@ -108,7 +108,7 @@ SwapChain::SwapChain(DevicePtr device, SurfacePtr surface)
   // create a fence for acquire back image
   VkFenceCreateInfo acquire_fence_create_info = {};
   acquire_fence_create_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-  VKUT_THROW_IF_FAILED(vkCreateFence(device_->vkDevice(),
+  VKUT_THROW_IF_FAILED(vkCreateFence(device_->vk_device(),
                                      &acquire_fence_create_info, nullptr,
                                      &acquire_fence_));
 
@@ -119,23 +119,23 @@ SwapChain::~SwapChain() {
   destroy_swapchain();
 
   if (acquire_fence_) {
-    vkDestroyFence(device_->vkDevice(), acquire_fence_, nullptr);
+    vkDestroyFence(device_->vk_device(), acquire_fence_, nullptr);
   }
 }
 
 void SwapChain::acquire() {
   VKUT_THROW_IF_FAILED(vkAcquireNextImageKHR(
-      device_->vkDevice(), vk_swapchain_, UINT64_MAX, VK_NULL_HANDLE,
+      device_->vk_device(), vk_swapchain_, UINT64_MAX, VK_NULL_HANDLE,
       acquire_fence_, &back_image_index_));
 
-  VKUT_THROW_IF_FAILED(vkWaitForFences(device_->vkDevice(), 1, &acquire_fence_,
+  VKUT_THROW_IF_FAILED(vkWaitForFences(device_->vk_device(), 1, &acquire_fence_,
                                        VK_FALSE, UINT64_MAX));
-  VKUT_THROW_IF_FAILED(vkResetFences(device_->vkDevice(), 1, &acquire_fence_));
+  VKUT_THROW_IF_FAILED(vkResetFences(device_->vk_device(), 1, &acquire_fence_));
 }
 
 void SwapChain::present() {
   VkQueue q = VK_NULL_HANDLE;
-  vkGetDeviceQueue(device_->vkDevice(), present_queue_family_index_, 0, &q);
+  vkGetDeviceQueue(device_->vk_device(), present_queue_family_index_, 0, &q);
 
   VkPresentInfoKHR present_info = {};
   present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
@@ -146,13 +146,13 @@ void SwapChain::present() {
 }
 
 void SwapChain::find_present_queue_family() {
-  auto physical_device = device_->physicalDevice();
+  auto physical_device = device_->physical_device();
 
   present_queue_family_index_ = UINT32_MAX;
   for (uint32_t i = 0; i < physical_device->queue_family_count(); ++i) {
     VkBool32 supported = VK_FALSE;
     VKUT_THROW_IF_FAILED(vkGetPhysicalDeviceSurfaceSupportKHR(
-        physical_device->vkPhysicalDevice(), i, surface_->vkSurface(),
+        physical_device->vk_physical_device(), i, surface_->vk_surface(),
         &supported));
 
     if (supported == VK_TRUE) {
@@ -166,22 +166,22 @@ void SwapChain::create_swapchain() {
   const auto compute_image_extent = [this] {
     VkSurfaceCapabilitiesKHR caps;
     vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
-        device_->physicalDevice()->vkPhysicalDevice(), surface_->vkSurface(),
+        device_->physical_device()->vk_physical_device(), surface_->vk_surface(),
         &caps);
 
     image_extent_ = caps.currentExtent;
   };
   const auto select_image_format = [this] {
-    auto& physical_device = device_->physicalDevice();
+    auto& physical_device = device_->physical_device();
 
     uint32_t format_count = 0;
     VKUT_THROW_IF_FAILED(vkGetPhysicalDeviceSurfaceFormatsKHR(
-        physical_device->vkPhysicalDevice(), surface_->vkSurface(),
+        physical_device->vk_physical_device(), surface_->vk_surface(),
         &format_count, nullptr));
 
     std::vector<VkSurfaceFormatKHR> surface_formats(format_count);
     VKUT_THROW_IF_FAILED(vkGetPhysicalDeviceSurfaceFormatsKHR(
-        physical_device->vkPhysicalDevice(), surface_->vkSurface(),
+        physical_device->vk_physical_device(), surface_->vk_surface(),
         &format_count, surface_formats.data()));
 
     for (auto& surface_format : surface_formats) {
@@ -202,7 +202,7 @@ void SwapChain::create_swapchain() {
 
   VkSwapchainCreateInfoKHR swapchain_create_info = {};
   swapchain_create_info.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-  swapchain_create_info.surface = surface_->vkSurface();
+  swapchain_create_info.surface = surface_->vk_surface();
 
   // image properties
   swapchain_create_info.minImageCount = 2;
@@ -224,16 +224,16 @@ void SwapChain::create_swapchain() {
   swapchain_create_info.clipped = VK_TRUE;
   swapchain_create_info.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
   VKUT_THROW_IF_FAILED(vkCreateSwapchainKHR(
-      device_->vkDevice(), &swapchain_create_info, nullptr, &vk_swapchain_));
+      device_->vk_device(), &swapchain_create_info, nullptr, &vk_swapchain_));
 
   // retrieve swapchain images
   uint32_t image_count = 0;
   VKUT_THROW_IF_FAILED(vkGetSwapchainImagesKHR(
-      device_->vkDevice(), vk_swapchain_, &image_count, nullptr));
+      device_->vk_device(), vk_swapchain_, &image_count, nullptr));
 
   images_.resize(image_count);
   VKUT_THROW_IF_FAILED(vkGetSwapchainImagesKHR(
-      device_->vkDevice(), vk_swapchain_, &image_count, images_.data()));
+      device_->vk_device(), vk_swapchain_, &image_count, images_.data()));
 
   // create associate image view
   for (auto& image : images_) {
@@ -253,7 +253,7 @@ void SwapChain::create_swapchain() {
     };
     VkImageView view = VK_NULL_HANDLE;
     VKUT_THROW_IF_FAILED(vkCreateImageView(
-        device_->vkDevice(), &image_view_create_info, nullptr, &view));
+        device_->vk_device(), &image_view_create_info, nullptr, &view));
 
     image_views_.push_back(view);
   }
@@ -261,10 +261,10 @@ void SwapChain::create_swapchain() {
 
 void SwapChain::destroy_swapchain() {
   if (vk_swapchain_) {
-    vkDestroySwapchainKHR(device_->vkDevice(), vk_swapchain_, nullptr);
+    vkDestroySwapchainKHR(device_->vk_device(), vk_swapchain_, nullptr);
   }
   for (auto& view : image_views_) {
-    vkDestroyImageView(device_->vkDevice(), view, nullptr);
+    vkDestroyImageView(device_->vk_device(), view, nullptr);
   }
 }
 
@@ -282,11 +282,16 @@ void vkut_createInstanceAndSurface(GLFWwindow* window,
 void vkut_createSurfaceAndDevice(GLFWwindow* window, SurfacePtr* out_surface,
                                  DevicePtr* out_device) {
   // create instance
+  std::vector<const char*> instance_layers = {
+      "VK_LAYER_LUNARG_standard_validation",
+  };
+
   uint32_t extension_count = 0;
   const auto extensions = glfwGetRequiredInstanceExtensions(&extension_count);
 
-  auto instance =
-      std::make_shared<Instance>(0, nullptr, extension_count, extensions);
+  auto instance = std::make_shared<Instance>(uint32_t(instance_layers.size()),
+                                             instance_layers.data(),
+                                             extension_count, extensions);
 
   // create surface
   *out_surface = std::make_shared<Surface>(window, instance);

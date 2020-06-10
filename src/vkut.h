@@ -2,8 +2,8 @@
 // Created by murmur.wheel@gmail.com on 2020/5/23.
 //
 
-#ifndef GLSL_RAYTRACING_VKUT_H
-#define GLSL_RAYTRACING_VKUT_H
+#ifndef VKUT_H
+#define VKUT_H
 
 #include <unordered_map>
 #include <vector>
@@ -34,7 +34,7 @@ class Instance : public std::enable_shared_from_this<Instance> {
   ~Instance();
 
   // retrieve vulkan states
-  [[nodiscard]] const VkInstance &vkInstance() const { return vk_instance_; }
+  [[nodiscard]] const VkInstance &vk_instance() const { return vk_instance_; }
 
   [[nodiscard]] std::vector<PhysicalDevicePtr> enumerate_physical_devices();
 
@@ -47,7 +47,7 @@ class Surface {
   explicit Surface(GLFWwindow *window, InstancePtr instance);
   ~Surface();
 
-  [[nodiscard]] const VkSurfaceKHR &vkSurface() const { return vk_surface_; }
+  [[nodiscard]] const VkSurfaceKHR &vk_surface() const { return vk_surface_; }
   [[nodiscard]] const InstancePtr &instance() const { return instance_; }
 
  private:
@@ -63,7 +63,7 @@ class PhysicalDevice {
   // retrieve states
   // clang-format off
   [[nodiscard]] const InstancePtr &instance() const { return instance_; }
-  [[nodiscard]] const VkPhysicalDevice &vkPhysicalDevice() const { return vk_physical_device_; }
+  [[nodiscard]] const VkPhysicalDevice &vk_physical_device() const { return vk_physical_device_; }
   [[nodiscard]] uint32_t queue_family_count() const { return static_cast<uint32_t>(queue_family_properties_.size()); }
   [[nodiscard]] const std::vector<VkQueueFamilyProperties>& queue_family_properties() const { return queue_family_properties_; }
   // clang-format on
@@ -82,8 +82,8 @@ class Device {
   ~Device();
 
   // clang-format off
-  [[nodiscard]] const PhysicalDevicePtr &physicalDevice() const { return physical_device_; }
-  [[nodiscard]] const VkDevice &vkDevice() const { return vk_device_; }
+  [[nodiscard]] const PhysicalDevicePtr &physical_device() const { return physical_device_; }
+  [[nodiscard]] const VkDevice &vk_device() const { return vk_device_; }
   // clang-format on
 
  private:
@@ -146,4 +146,4 @@ const char *vkut_convertVkResultToString(VkResult result);
     }                                                        \
   } while (false)
 
-#endif  // GLSL_RAYTRACING_VKUT_H
+#endif  // VKUT_H

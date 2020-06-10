@@ -2,8 +2,8 @@
 // Created by murmur.wheel@gmail.com on 2020/5/23.
 //
 
-#ifndef GLSL_RAYTRACING_CAMERA_H
-#define GLSL_RAYTRACING_CAMERA_H
+#ifndef CAMERA_H
+#define CAMERA_H
 
 #include "util.h"
 
@@ -16,9 +16,18 @@ class CameraData {
   float ratio_aspect{0};
 };
 
+const uint32_t CAMERA_FLAG_UPDATED = 1;
+
 class Camera {
  public:
-  virtual void get_data(CameraData* out_data, uint32_t* out_version) = 0;
+  bool is_flag(uint32_t flags) const { return (flags & flags_) == flags; }
+  void remove_flag(uint32_t flags) { flags_ = flags_ & (~flags); }
+  void set_flag(uint32_t flags) { flags_ = flags_ | flags; }
+
+  virtual void get_data(CameraData* out_data) = 0;
+
+ private:
+  uint32_t flags_{0};
 };
 
 class FirstPersonCamera : public Camera {
@@ -31,4 +40,4 @@ class ModelViewCamera : public Camera {
  private:
 };
 
-#endif  // GLSL_RAYTRACING_CAMERA_H
+#endif  // CAMERA_H

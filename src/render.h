@@ -2,8 +2,8 @@
 // Created by murmur.wheel@gmail.com on 2020/5/23.
 //
 
-#ifndef GLSL_RAYTRACING_RENDER_H
-#define GLSL_RAYTRACING_RENDER_H
+#ifndef RENDER_H
+#define RENDER_H
 
 #include "bvh.h"
 #include "camera.h"
@@ -14,17 +14,26 @@ class Renderer {
   explicit Renderer();
   ~Renderer();
 
-  void reset();
-  void render(BvhScene* bvh_scene, Camera* camera);
+  void reset_trace_buffer();
+  virtual void dispatch_trace_unit(BvhScene* bvh_scene, Camera* camera);
 
  private:
   BvhScene* bvh_scene_{nullptr};
   Camera* camera_{nullptr};
-  int camera_version_{0};
-
-  bool is_need_reset(BvhScene* bvh_scene, Camera* camera) {
-    return true;  // TODO
-  }
 };
 
-#endif  // GLSL_RAYTRACING_RENDER_H
+class ClearScreen : public Renderer {
+ public:
+  explicit ClearScreen(SwapChain* swap_chain, Vec3f color);
+  ~ClearScreen();
+
+  void reset_trace_buffer();
+  void dispatch_trace_unit(BvhScene* bvh_scene, Camera* camera) override;
+
+ private:
+  VkRenderPass vk_render_pass_{VK_NULL_HANDLE};
+  SwapChain* swap_chain_{nullptr};
+  std::vector<VkFramebuffer> framebuffers_;
+};
+
+#endif  // RENDER_H
