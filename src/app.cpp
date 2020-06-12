@@ -37,7 +37,7 @@ void App::load_model(const char* path) {
   // bvh_scene_ = new BvhScene(scene);
 }
 
-void App::run_event_loop() {
+void App::run() {
   while (!glfwWindowShouldClose(window_)) {
     glfwPollEvents();
 
@@ -62,4 +62,21 @@ void App::on_window_size() {
 
 void App::on_cursor_pos() {
   // TODO update camera
+}
+
+App2::App2(int width, int height, const char* title, const char* model_path) {
+  if (!glfwInit()) {
+    std::abort();
+  }
+  window_ = glfwCreateWindow(width, height, title, nullptr, nullptr);
+
+  vkut_createSurfaceAndDevice(window_, nullptr, nullptr);
+}
+
+App2::~App2() { glfwTerminate(); }
+
+void App2::run() {
+  while (!glfwWindowShouldClose(window_)) {
+    glfwPollEvents();
+  }
 }

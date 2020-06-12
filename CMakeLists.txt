@@ -28,7 +28,7 @@ set(SRCS
         src/bvh.cpp
 
         # entry point
-        src/main.cpp)
+        src/main.cpp src/vkut/instance.h src/vkut/instance.cpp src/vkut/common.h src/vkut/common.cpp)
 add_executable(glsl-raytracing ${SRCS})
 target_link_libraries(glsl-raytracing glfw)
 add_vulkan_support(glsl-raytracing)

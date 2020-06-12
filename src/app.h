@@ -5,6 +5,8 @@
 #ifndef APP_H
 #define APP_H
 
+#include <string>
+
 #include "bvh.h"
 #include "camera.h"
 #include "render.h"
@@ -18,7 +20,7 @@ class App {
 
   void load_model(const char* path);
 
-  void run_event_loop();
+  void run();
 
  private:
   GLFWwindow* window_{nullptr};
@@ -35,6 +37,24 @@ class App {
 
   void on_window_size();
   void on_cursor_pos();
+};
+
+class App2 {
+ public:
+  App2(int width, int height, const char* title, const char* model_path);
+  ~App2();
+
+  void run();
+
+ private:
+  // creation arguments
+  int width_{0};
+  int height_{0};
+  std::string title_;
+  std::string model_path_;
+
+  // window
+  GLFWwindow* window_{nullptr};
 };
 
 #endif  // APP_H

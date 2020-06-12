@@ -39,6 +39,8 @@ class Instance : public std::enable_shared_from_this<Instance> {
 
   [[nodiscard]] std::vector<PhysicalDevicePtr> enumerate_physical_devices();
 
+  static std::vector<VkLayerProperties> enumerate_instance_layers();
+
  private:
   VkInstance vk_instance_{VK_NULL_HANDLE};
 };
@@ -132,9 +134,6 @@ class SwapChain {
   void destroy_swapchain();
 };
 
-void vkut_createInstanceAndSurface(GLFWwindow *window,
-                                   InstancePtr *out_instance,
-                                   SurfacePtr *out_surface);
 void vkut_createSurfaceAndDevice(GLFWwindow *window, SurfacePtr *out_surface,
                                  DevicePtr *out_device);
 const char *vkut_convertVkResultToString(VkResult result);

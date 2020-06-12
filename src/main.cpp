@@ -14,22 +14,18 @@ void test_vulkan() {
     printf("init failed!\n");
   }
 
+  uint32_t physical_device_count = 0;
+  vkEnumeratePhysicalDevices(instance, &physical_device_count, nullptr);
+  printf("physical device count: %d\n", physical_device_count);
+
   vkDestroyInstance(instance, nullptr);
 }
 
 int main() {
-  if (!glfwInit()) {
-    return 1;
-  }
+  App app;
+  app.startup(640, 480);
 
-  test_vulkan();
+  app.run();
 
-  glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-  glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-  auto window = glfwCreateWindow(640, 480, "window", nullptr, nullptr);
-  while (!glfwWindowShouldClose(window)) {
-    glfwPollEvents();
-  }
-
-  glfwTerminate();
+  app.shutdown();
 }

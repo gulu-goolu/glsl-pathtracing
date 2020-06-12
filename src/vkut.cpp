@@ -42,6 +42,18 @@ std::vector<PhysicalDevicePtr> Instance::enumerate_physical_devices() {
   return physical_devices;
 }
 
+std::vector<VkLayerProperties> Instance::enumerate_instance_layers() {
+  uint32_t layer_count = 0;
+  VKUT_THROW_IF_FAILED(
+      vkEnumerateInstanceLayerProperties(&layer_count, nullptr));
+
+  std::vector<VkLayerProperties> layers(layer_count);
+  VKUT_THROW_IF_FAILED(
+      vkEnumerateInstanceLayerProperties(&layer_count, layers.data()));
+
+  return layers;
+}
+
 Surface::Surface(GLFWwindow* window, InstancePtr instance)
     : instance_(std::move(instance)) {
   VKUT_THROW_IF_FAILED(glfwCreateWindowSurface(instance_->vk_instance(), window,
@@ -166,8 +178,8 @@ void SwapChain::create_swapchain() {
   const auto compute_image_extent = [this] {
     VkSurfaceCapabilitiesKHR caps;
     vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
-        device_->physical_device()->vk_physical_device(), surface_->vk_surface(),
-        &caps);
+        device_->physical_device()->vk_physical_device(),
+        surface_->vk_surface(), &caps);
 
     image_extent_ = caps.currentExtent;
   };
@@ -266,17 +278,6 @@ void SwapChain::destroy_swapchain() {
   for (auto& view : image_views_) {
     vkDestroyImageView(device_->vk_device(), view, nullptr);
   }
-}
-
-void vkut_createInstanceAndSurface(GLFWwindow* window,
-                                   InstancePtr* out_instance,
-                                   SurfacePtr* out_surface) {
-  uint32_t extension_count = 0;
-  const auto extensions = glfwGetRequiredInstanceExtensions(&extension_count);
-
-  *out_instance =
-      std::make_shared<Instance>(0, nullptr, extension_count, extensions);
-  *out_surface = std::make_shared<Surface>(window, *out_instance);
 }
 
 void vkut_createSurfaceAndDevice(GLFWwindow* window, SurfacePtr* out_surface,
