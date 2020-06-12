@@ -5,12 +5,16 @@
 #include "app.h"
 
 int main() {
-  App app;
-  app.startup(1920, 1024);
+  if (!glfwInit()) {
+    return 1;
+  }
 
-  app.load_model("my_model.glb");
+  glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+  glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+  auto window = glfwCreateWindow(640, 480, "window", nullptr, nullptr);
+  while (!glfwWindowShouldClose(window)) {
+    glfwPollEvents();
+  }
 
-  app.run_event_loop();
-
-  app.shutdown();
+  glfwTerminate();
 }

@@ -13,6 +13,7 @@
 // clang-format on
 
 #include <memory>
+#include <exception>
 
 class Instance;
 class Surface;
@@ -142,7 +143,8 @@ const char *vkut_convertVkResultToString(VkResult result);
   do {                                                       \
     VkResult r = EXPR;                                       \
     if (r != VK_SUCCESS) {                                   \
-      throw std::exception(vkut_convertVkResultToString(r)); \
+      const char *err_msg = vkut_convertVkResultToString(r); \
+      throw std::runtime_error(err_msg);                     \
     }                                                        \
   } while (false)
 

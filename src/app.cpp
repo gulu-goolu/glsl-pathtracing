@@ -42,15 +42,15 @@ void App::run_event_loop() {
     glfwPollEvents();
 
     swap_chain_->acquire();
-
-    CameraData camera_data;
-    camera_->get_data(&camera_data);
-    if (camera_->is_flag(CAMERA_FLAG_UPDATED)) {
-      renderer_->reset_trace_buffer();
-      camera_->remove_flag(CAMERA_FLAG_UPDATED);
-    }
-    renderer_->dispatch_trace_unit(bvh_scene_, camera_);
-
+    /*
+        CameraData camera_data;
+        camera_->get_data(&camera_data);
+        if (camera_->is_flag(CAMERA_FLAG_UPDATED)) {
+          renderer_->reset_trace_buffer();
+          camera_->remove_flag(CAMERA_FLAG_UPDATED);
+        }
+        renderer_->dispatch_trace_unit(bvh_scene_, camera_);
+    */
     swap_chain_->present();
   }
 }
