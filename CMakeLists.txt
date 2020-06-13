@@ -30,7 +30,7 @@ set(SRCS
         # entry point
         src/main.cpp src/vkut/instance.h src/vkut/instance.cpp src/vkut/common.h src/vkut/common.cpp)
 add_executable(glsl-raytracing ${SRCS})
-target_link_libraries(glsl-raytracing glfw)
+target_link_libraries(glsl-raytracing glfw gflags::gflags)
 add_vulkan_support(glsl-raytracing)
 
 # shader compilation

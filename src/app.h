@@ -25,16 +25,6 @@ class App {
  private:
   GLFWwindow* window_{nullptr};
 
-  InstancePtr instance_;
-  SurfacePtr surface_;
-  DevicePtr device_;
-  SwapChainPtr swap_chain_;
-
-  Scene* scene_{nullptr};
-  BvhScene* bvh_scene_{nullptr};
-  Camera* camera_{nullptr};
-  Renderer* renderer_{nullptr};
-
   void on_window_size();
   void on_cursor_pos();
 };

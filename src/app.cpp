@@ -14,16 +14,10 @@ void App::startup(int width, int height) {
   glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
   window_ = glfwCreateWindow(width, height, title, nullptr, nullptr);
 
-  vkut_createSurfaceAndDevice(window_, &surface_, &device_);
-  swap_chain_ = std::make_shared<SwapChain>(device_, surface_);
-
   // create camera
 }
 
 void App::shutdown() {
-  swap_chain_.reset();
-  device_.reset();
-  surface_.reset();
   // TODO
   // destroy scene
   // destroy render and swap chain
@@ -40,18 +34,6 @@ void App::load_model(const char* path) {
 void App::run() {
   while (!glfwWindowShouldClose(window_)) {
     glfwPollEvents();
-
-    swap_chain_->acquire();
-    /*
-        CameraData camera_data;
-        camera_->get_data(&camera_data);
-        if (camera_->is_flag(CAMERA_FLAG_UPDATED)) {
-          renderer_->reset_trace_buffer();
-          camera_->remove_flag(CAMERA_FLAG_UPDATED);
-        }
-        renderer_->dispatch_trace_unit(bvh_scene_, camera_);
-    */
-    swap_chain_->present();
   }
 }
 
@@ -69,8 +51,6 @@ App2::App2(int width, int height, const char* title, const char* model_path) {
     std::abort();
   }
   window_ = glfwCreateWindow(width, height, title, nullptr, nullptr);
-
-  vkut_createSurfaceAndDevice(window_, nullptr, nullptr);
 }
 
 App2::~App2() { glfwTerminate(); }
